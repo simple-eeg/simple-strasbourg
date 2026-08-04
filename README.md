@@ -228,8 +228,8 @@ Step 1 inventories the external BrainVision export, verifies each expected file 
 - reads the checked preliminary inventory
 - creates a subject/session EEG tree under `data/source/`
 - copies only complete `.vhdr`/`.vmrk`/`.dat` triplets
-- preserves the source filenames so the BrainVision header and marker links remain valid
-- refuses to proceed if the destination source tree already exists
+- preserves source filenames and same-directory placement for existing BrainVision file references
+- supports file-level restart after interruption by retaining final files, deleting stale local `.partial` files, and recopying absent final files
 
 ### Manual checkpoint
 

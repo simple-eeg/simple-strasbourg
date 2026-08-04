@@ -2,12 +2,13 @@
 % Create BIDS-style "source" tree and copy Strasbourg BrainVision data.
 % - Reads dataset_list_prelim.xlsx from data_lists/.
 % - Uses *_missing flags to decide which rows to copy.
-% - For each row with all three files present:
+% - For each row not flagged as missing any of the three expected files:
 %       - Creates data/source/sub-<subjectID>/ses-<sessionID>/eeg
 %       - Copies vhdr, vmrk, dat into that folder, preserving filenames.
+% - Retains completed final files and restarts interrupted .partial copies.
 % - Prints progress per row and a summary at the end.
 %
-% No filenames are changed; BrainVision header/marker links remain valid.
+% No filenames are changed, preserving existing same-directory BrainVision file references.
 
 log_command_window('start');
 clear; clc;
@@ -19,12 +20,12 @@ dataListsDir = fullfile(baseDir, 'data_lists');
 eegFile      = fullfile(dataListsDir, 'dataset_list_prelim.xlsx');
 sourceRoot   = fullfile(baseDir, 'data', 'source');
 
-%% 2. Check source folder does not already exist
+%% 2. Report existing source folder for resumable copying
 
 if isfolder(sourceRoot)
-    fprintf('Source folder already exists at %s\n', sourceRoot);
-    error('CreateSource:SourceExists', ...
-        'Source folder already exists; aborting to avoid overwriting.');
+    fprintf(['Source folder already exists at %s\n', ...
+        'Existing final files will be retained and missing files will be copied.\n'], ...
+        sourceRoot);
 end
 
 %% 3. Check dataset_list_prelim.xlsx exists and read it
@@ -83,7 +84,8 @@ toCopy = (eegTable.vhdr_missing ~= "missing") & ...
     (eegTable.dat_missing  ~= "missing");
 
 nToCopy = sum(toCopy);
-nCopied = 0;
+nFilesCopied = 0;
+nFilesAlreadyPresent = 0;
 
 %% 5. Loop over rows
 
@@ -93,12 +95,12 @@ for i = 1:nRows
     run  = eegTable.runID(i);
 
     if ~toCopy(i)
-        fprintf('Skipping sub-%s, ses-%s, run %s (missing files)\n', ...
+        fprintf('Skipping sub-%s, ses-%s, run %s (at least one expected file was flagged missing)\n', ...
             subj, sess, run);
         continue;
     end
 
-    fprintf('Copying sub-%s, ses-%s, run-%s...\n', subj, sess, run);
+    fprintf('Preparing sub-%s, ses-%s, run-%s...\n', subj, sess, run);
 
     % Build destination directory from relative path_out
     relPathOut = eegTable.path_out(i);          % e.g. "data/source/sub-BB16/ses-.../eeg"
@@ -123,31 +125,57 @@ for i = 1:nRows
     vmrkDst = fullfile(destDir, eegTable.vmrk(i));
     datDst  = fullfile(destDir, eegTable.dat(i));
 
-    % Copy files; error immediately if any copy fails
-    [ok1, msg1] = copyfile(vhdrSrc, vhdrDst);
-    if ~ok1
-        error('CreateSource:CopyFailed', ...
-            'Failed to copy file from "%s" to "%s": %s', vhdrSrc, vhdrDst, msg1);
-    end
+    sourceFiles = [vhdrSrc, vmrkSrc, datSrc];
+    destinationFiles = [vhdrDst, vmrkDst, datDst];
 
-    [ok2, msg2] = copyfile(vmrkSrc, vmrkDst);
-    if ~ok2
-        error('CreateSource:CopyFailed', ...
-            'Failed to copy file from "%s" to "%s": %s', vmrkSrc, vmrkDst, msg2);
-    end
+    % Copy each absent file to a local .partial sibling before renaming it.
+    for f = 1:numel(sourceFiles)
+        sourceFile = sourceFiles(f);
+        destinationFile = destinationFiles(f);
 
-    [ok3, msg3] = copyfile(datSrc, datDst);
-    if ~ok3
-        error('CreateSource:CopyFailed', ...
-            'Failed to copy file from "%s" to "%s": %s', datSrc, datDst, msg3);
-    end
+        if isfile(destinationFile)
+            fprintf('  Already present: %s\n', destinationFile);
+            nFilesAlreadyPresent = nFilesAlreadyPresent + 1;
+            continue;
+        end
 
-    nCopied = nCopied + 1;
+        partialFile = destinationFile + ".partial";
+        if isfile(partialFile)
+            delete(partialFile);
+        end
+
+        [copyOk, copyMessage] = copyfile(sourceFile, partialFile);
+        if ~copyOk
+            if isfile(partialFile)
+                try
+                    delete(partialFile);
+                catch cleanupError
+                    warning('CreateSource:PartialCleanupFailed', ...
+                        'Could not remove incomplete local file "%s": %s', ...
+                        partialFile, cleanupError.message);
+                end
+            end
+            error('CreateSource:CopyFailed', ...
+                'Failed to copy file from "%s" to "%s": %s', ...
+                sourceFile, partialFile, copyMessage);
+        end
+
+        [moveOk, moveMessage] = movefile(partialFile, destinationFile);
+        if ~moveOk
+            error('CreateSource:RenameFailed', ...
+                'Failed to rename local file from "%s" to "%s": %s', ...
+                partialFile, destinationFile, moveMessage);
+        end
+
+        fprintf('  Copied: %s\n', destinationFile);
+        nFilesCopied = nFilesCopied + 1;
+    end
 end
 
 %% 6. Final summary
 
-fprintf('Copied %d row(s) out of %d row(s) scheduled for copying.\n', ...
-    nCopied, nToCopy);
+fprintf(['Completed all %d scheduled BrainVision triplet(s): ', ...
+    '%d file(s) copied in this run and %d already-present final file(s) retained.\n'], ...
+    nToCopy, nFilesCopied, nFilesAlreadyPresent);
 
 log_command_window('stop');

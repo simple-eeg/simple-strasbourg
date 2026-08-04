@@ -38,7 +38,7 @@ eeg_table = readtable(eeg_file, ...
     'PreserveVariableNames', true, ...
     'TextType', 'string');
 
-% Expect these columns (created by step_1_source_1_create_list.m)
+% Expect these columns (created by step_1_source_1_create_dataset_list_prelim.m)
 required_cols = ["subjectID", "sessionID", "runID", "format", ...
     "vhdr", "vmrk", "dat", "path_in", "path_out"];
 
@@ -111,7 +111,7 @@ n_rows_with_missing = sum(has_missing);
 
 writetable(eeg_table, eeg_file);
 
-fprintf('Updated EEG file list: %d row(s) with missing data files out of %d total.\n', ...
+fprintf('Updated EEG file list: %d row(s) with at least one expected BrainVision component not found out of %d total.\n', ...
     n_rows_with_missing, n_rows);
 
 log_command_window('stop');
