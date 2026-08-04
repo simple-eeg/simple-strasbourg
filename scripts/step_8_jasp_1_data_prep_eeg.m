@@ -68,7 +68,7 @@ log_command_window('start');
 clear; clc;
 
 %% 0) User config: paths, constants, and fixed schemas
-baseDir = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 
 qcCsv = fullfile(baseDir, 'data', 'summary', 'screening', ...
     'pooled_screened_eeg_qc_features.csv');

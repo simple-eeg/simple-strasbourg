@@ -30,7 +30,7 @@ log_command_window('start');
 clear; clc;
 
 %% ───────────────────────────── USER CONFIG ─────────────────────────────
-baseDir = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 
 pooledDir    = fullfile(baseDir, 'data', 'summary', 'pooled');
 screeningDir = fullfile(baseDir, 'data', 'summary', 'screening');

@@ -36,7 +36,7 @@ eeglab;
 
 %% 1. Define paths
 
-baseDir       = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir       = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 dataListsPath = fullfile(baseDir, 'data_lists', 'dataset_list_prelim.xlsx');
 
 eventsRoot    = fullfile(baseDir, 'data', 'info_prelim', 'event_types_original');

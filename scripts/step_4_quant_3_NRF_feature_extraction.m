@@ -29,7 +29,7 @@ log_command_window('start');
 clear; clc;
 
 %% --- User-configurable paths & settings (edit here) ---
-baseDir         = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir         = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 config_path     = fullfile(baseDir, 'data_lists', 'nrf_config.ini');
 epoch_csv       = fullfile(baseDir, 'data', 'info', 'epoch_types', 'epoch_type_summary.csv');
 dataListPath    = fullfile(baseDir, 'data_lists', 'dataset_list.csv');

@@ -36,7 +36,7 @@ clear; clc;
 
 %% 0) User configuration
 
-PROJECT_ROOT  = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+PROJECT_ROOT  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 XLSX_PATH     = fullfile(PROJECT_ROOT, 'data_lists', 'dataset_list_prelim.xlsx');
 MAP_CSV       = fullfile(PROJECT_ROOT, 'data', 'info_prelim', ...
     'event_types_original', 'event_types_original_summary.csv');

@@ -32,7 +32,7 @@ clear; clc;
 
 %% 0) Setup paths and EEGLAB
 
-baseDir     = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir     = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 eegListPath = fullfile(baseDir, 'data_lists', 'dataset_list_prelim.xlsx');
 mapPath     = fullfile(baseDir, 'data', 'info_prelim', ...
     'event_types_original', 'event_types_original_summary.csv');

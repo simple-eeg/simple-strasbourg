@@ -44,7 +44,7 @@ log_command_window('start');
 clear; clc;
 
 %% 0) Paths and output folders
-baseDir               = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir               = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 fileListPath          = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
 
 outEpochTypesFolder   = fullfile(baseDir, 'data', 'info', 'epoch_types');

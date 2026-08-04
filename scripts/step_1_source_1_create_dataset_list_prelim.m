@@ -14,7 +14,7 @@ clear; clc;
 %% 1. Define paths and constants
 
 % Local project root and remote raw data folder
-local_base  = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+local_base  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 remote_base = '/Volumes/NDCN_SLATER/PiPAgroup_data_2TS/pipagroup_data_backup/Strasbourg/Data_export_June_2024';
 
 data_lists_dir = fullfile(local_base, 'data_lists');

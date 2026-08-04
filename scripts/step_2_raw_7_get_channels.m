@@ -21,7 +21,7 @@ log_command_window('start');
 clear; clc;
 
 %% Project paths
-baseDir = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 dataListPath    = fullfile(baseDir, 'data_lists', 'dataset_list_prelim.xlsx');
 processedRoot   = fullfile(baseDir, 'data', 'info_prelim');
 channelsFolder  = fullfile(processedRoot, 'channels');

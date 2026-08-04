@@ -32,7 +32,7 @@ log_command_window('start');
 clear; clc;
 
 %% ───────────────────────────── USER CONFIG ─────────────────────────────
-baseDir = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 
 screeningDir = fullfile(baseDir, 'data', 'summary', 'screening');
 inMat        = fullfile(screeningDir, 'pooled_screened_eeg_epochs.mat');

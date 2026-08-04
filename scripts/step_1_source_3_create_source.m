@@ -14,7 +14,7 @@ clear; clc;
 
 %% 1. Define paths
 
-baseDir      = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir      = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 dataListsDir = fullfile(baseDir, 'data_lists');
 eegFile      = fullfile(dataListsDir, 'dataset_list_prelim.xlsx');
 sourceRoot   = fullfile(baseDir, 'data', 'source');

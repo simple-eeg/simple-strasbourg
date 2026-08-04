@@ -22,7 +22,7 @@ log_command_window('start');
 clear; clc;
 
 %% User-editable paths
-baseDir      = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir      = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 screeningDir = fullfile(baseDir, 'data', 'summary', 'screening');
 
 packagePath  = fullfile(screeningDir, 'screening_package.mat');

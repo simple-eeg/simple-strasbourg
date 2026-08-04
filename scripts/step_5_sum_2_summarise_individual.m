@@ -31,7 +31,7 @@ clear; clc;
 
 %% 0) User-configurable parameters
 
-baseDir  = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 fileList = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
 
 % Explicit, case-sensitive lists the user controls:

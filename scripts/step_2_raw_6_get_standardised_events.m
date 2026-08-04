@@ -40,7 +40,7 @@ clear; clc;
 
 %% 0) Setup paths
 
-root         = "/Users/lukebaxter/pipeline_paper/simple-strasbourg";
+root         = "/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg";
 fileListPath = fullfile(root, 'data_lists', 'dataset_list_prelim.xlsx');
 eventsFolder = fullfile(root, 'data', 'info_prelim', 'event_types_standardised');
 

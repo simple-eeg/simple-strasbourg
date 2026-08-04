@@ -37,7 +37,7 @@ clear; clc;
 
 %% 1. Paths
 
-baseDir      = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir      = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 fileListPath = fullfile(baseDir, 'data_lists', 'dataset_list_prelim.xlsx');
 
 if ~isfile(fileListPath)

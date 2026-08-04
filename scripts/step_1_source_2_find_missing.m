@@ -14,7 +14,7 @@ clear; clc;
 
 %% 1. Define paths
 
-local_base     = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+local_base     = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 data_lists_dir = fullfile(local_base, 'data_lists');
 eeg_file       = fullfile(data_lists_dir, 'dataset_list_prelim.xlsx');
 

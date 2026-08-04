@@ -27,7 +27,7 @@ log_command_window('start');
 clear; clc;
 
 %% 0) Setup paths
-root          = "/Users/lukebaxter/pipeline_paper/simple-strasbourg";
+root          = "/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg";
 fileListPath  = root + "/data_lists/dataset_list.csv";
 eventsFolder  = root + "/data/info/event_types";
 

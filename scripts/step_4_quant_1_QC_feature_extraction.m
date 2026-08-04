@@ -16,7 +16,7 @@ log_command_window('start');
 clear; clc;
 
 %% Project setup
-baseDir         = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir         = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 functionsFolder = fullfile(baseDir, 'functions');
 if exist(functionsFolder, 'dir'); addpath(functionsFolder); end
 

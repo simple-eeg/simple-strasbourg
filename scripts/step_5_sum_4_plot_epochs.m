@@ -40,7 +40,7 @@ log_command_window('start');
 clear; clc;
 
 %% 1) Paths and environment
-baseDir  = '/Users/lukebaxter/pipeline_paper/simple-strasbourg';
+baseDir  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 pooledDir = fullfile(baseDir, 'data', 'summary', 'pooled');
 
 epochsMatPath = fullfile(pooledDir, 'pooled_eeg_epochs.mat');
