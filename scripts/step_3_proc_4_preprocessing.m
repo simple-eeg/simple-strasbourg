@@ -5,7 +5,7 @@
 %   This script processes a list of EEG .set files in a clear four-block flow:
 %     A) Continuous-data cleaning (re-reference, resample, band-pass, line-noise)
 %     B) Delete unwanted events (e.g., events labeled 'NA')
-%     C) Add per-source dummy/offset events (e.g., *_prestim at -2000 ms)
+%     C) Add per-source dummy/offset events (e.g., *_prestim at -1500 ms)
 %     D) Epoch and baseline
 %
 %   The script prints concise progress and outcomes to the Command Window and embeds
@@ -67,16 +67,16 @@ PreprocOptions.delete_labels  = {'NA'};                  % additional labels can
 
 % Block C — Add dummy/offset events
 PreprocOptions.offsetevents = true;
-PreprocOptions.src_types    = {'touch', 'cannula'};
+PreprocOptions.src_types    = {'cannula'};
 PreprocOptions.offset_ms    = -1500;                     % negative for prestim
-PreprocOptions.new_types    = {'touch_prestim', 'cannula_prestim'};
+PreprocOptions.new_types    = {'cannula_prestim'};
 PreprocOptions.annotation_for_dummies = {'manually_added_dummy'}; % stored as 1x1 cell to match dataset convention
 PreprocOptions.offset_policy = 'skip_oob';               % 'skip_oob' or 'allow_oob'
 
 % Block D — Epoching and baseline
 PreprocOptions.epoching        = true;
-PreprocOptions.epochevents_true  = {'touch', 'cannula'};
-PreprocOptions.epochevents_dummy = {'touch_prestim', 'cannula_prestim'};
+PreprocOptions.epochevents_true  = {'cannula'};
+PreprocOptions.epochevents_dummy = {'cannula_prestim'};
 PreprocOptions.epochlimpre_ms  = 200;                    % milliseconds before event
 PreprocOptions.epochlimpost_ms = 1200;                   % milliseconds after event
 PreprocOptions.baseadjust      = true;                   % baseline after epoching
@@ -226,7 +226,7 @@ for idx = 1:totalToDo
         % -------------------------------------------------------------------------------------------------------
 
 
-        % --------------- Block C — Add per-source dummy/offset events (e.g., *_prestim at -2000 ms) ------------
+        % --------------- Block C — Add per-source dummy/offset events (e.g., *_prestim at -1500 ms) ------------
         if PreprocOptions.offsetevents
             [EEG_clean, repAdd] = add_offset_events( ...
                 EEG_clean, ...
