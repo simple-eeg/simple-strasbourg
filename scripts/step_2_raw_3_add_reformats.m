@@ -174,7 +174,8 @@ for i = 1:N
         T.path_reformatted(i) = "";
     end
 
-    if T.path_reformatted(i) ~= ""
+    if ~ismissing(T.EEGfile_reformatted(i)) && T.EEGfile_reformatted(i) ~= "" && ...
+            ~ismissing(T.path_reformatted(i)) && T.path_reformatted(i) ~= ""
         nUpdated = nUpdated + 1;
     end
 end

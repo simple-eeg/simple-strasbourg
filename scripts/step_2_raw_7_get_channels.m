@@ -9,13 +9,13 @@
 %       * Filter_* columns are created empty as user-editable placeholders
 %
 % Inclusion / exclusion:
-%   - A spreadsheet row is included if 'excluded_datasets' is blank/absent (case-insensitive check)
-%   - Excluded rows are skipped and their 'channels' cell is left blank
+%   - Rows whose 'excluded_datasets' value contains "excluded" (case-insensitive) are skipped
+%   - Other rows are included; skipped rows leave their 'channels' cell blank
 %
 % Behavior:
 %   - Fail fast if an included .set file is missing or unreadable
-%   - Idempotent: safe to re-run (rewrites per-file CSVs, recomputes summary, rewrites 'channels' column)
-%   - Requires EEGLAB on path; launches headless (nogui)
+%   - Re-running regenerates all outputs, including blank Filter_* placeholders in channel_summary.csv
+%   - Requires EEGLAB on path; launches EEGLAB
 
 log_command_window('start');
 clear; clc;

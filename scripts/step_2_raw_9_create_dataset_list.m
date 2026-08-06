@@ -12,10 +12,10 @@
 %       "included" for included rows; blank otherwise
 %   - Overwrite: data_lists/dataset_list_prelim.xlsx (formatting loss acceptable)
 %   - Create: data_lists/dataset_list.csv using included rows only, with columns:
-%       subjectID, sessionID, runID, EEGfile_raw, path_raw
+%       subjectID, sessionID, runID, path_raw, EEGfile_raw
 %     where:
-%       EEGfile_raw <- EEGfile_reformatted
 %       path_raw    <- path_reformatted
+%       EEGfile_raw <- EEGfile_reformatted
 %   - For included rows only, require non-blank (after trim) in:
 %       subjectID, sessionID, runID, EEGfile_reformatted, path_reformatted
 %     otherwise hard error
@@ -177,10 +177,6 @@ nExcluded = nTotal - nIncluded;
 
 fprintf('Rows read: %d | Included: %d | Excluded: %d\n', nTotal, nIncluded, nExcluded);
 
-%% ───────────────────────────── Overwrite XLSX ─────────────────────────────
-writetable(T, inXlsx, 'FileType', 'spreadsheet');
-fprintf('Overwrote XLSX with included_datasets appended: %s\n', inXlsx);
-
 %% ───────────────────────────── Create dataset_list.csv (included rows only) ─────────────────────────────
 Tincl = T(isIncluded, :);
 
@@ -248,6 +244,10 @@ if ~isempty(Tincl)
         error('%s', msg);
     end
 end
+
+%% ───────────────────────────── Overwrite XLSX ─────────────────────────────
+writetable(T, inXlsx, 'FileType', 'spreadsheet');
+fprintf('Overwrote XLSX with included_datasets appended: %s\n', inXlsx);
 
 % Build output table with renamed columns
 Tout = table();

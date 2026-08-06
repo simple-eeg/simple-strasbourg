@@ -9,7 +9,7 @@
 %
 % Notes:
 %   - Exact, case-sensitive matching of channel names
-%   - Rows already excluded upstream (excluded_datasets == "excluded", case-insensitive) are skipped and left blank
+%   - Rows whose upstream exclusion value contains "excluded" (case-insensitive) are skipped and left blank
 %   - Empty filter columns are ignored (i.e., no constraint)
 %   - If Filter_OR marks exactly one channel, the script errors (users should use AND for single requirements)
 
@@ -93,7 +93,7 @@ for i = 1:N
         continue;
     end
 
-    % Parse this row's channels (semicolon-separated, already unique from step 3.1)
+    % Parse this row's channels (semicolon-separated, already unique from step 2.7)
     chanStr = T.channels(i);
     if ismissing(chanStr) || chanStr == ""
         thisSet = string([]);   % no channels listed for this row
