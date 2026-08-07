@@ -15,7 +15,7 @@
 %   - Exactly one scalar start per profile (pre ≤ 0 XOR post ≥ 0). Other empty.
 %   - Runtime checks per dataset: abs_start_ms >= jitter; sample-grid alignment.
 %   - Case-sensitive eventtype matching; CSV cells empty or a single profile name.
-%   - Channels only from the profile; silently skip those not present.
+%   - Channels only from the profile; report and skip those not present.
 %   - Clear all previous results under EEG.epoch(e).NRF before writing.
 %
 % Inputs expected:

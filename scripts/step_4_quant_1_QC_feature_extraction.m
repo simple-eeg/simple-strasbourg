@@ -25,6 +25,8 @@ dataListPath    = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
 % Initialize EEGLAB + SIMPLE
 eeglab;
 assert(exist('quality_control_features','file') == 2, 'quality_control_features.m not found on path.');
+assert(exist('quality_control_features_with_diagnostics','file') == 2, ...
+    'quality_control_features_with_diagnostics.m not found on path.');
 
 %% ---- User-editable QC options (REQUESTED) ----
 channels_of_interest = {'Cz','CZ'};   % exact, case-sensitive labels
@@ -111,7 +113,7 @@ for idx = 1:totalToDo
     EEG_selected = pop_select(EEG, 'channel', present);
 
     % Run QC (produces EEG_selected.epoch(e).qc aggregated vectors)
-    EEG_selected = quality_control_features(EEG_selected);
+    EEG_selected = quality_control_features_with_diagnostics(EEG_selected, r, srcFile);
 
     % Build nested-by-channel QC in the original EEG and remove aggregated qc
     for e = 1:numel(EEG_selected.epoch)

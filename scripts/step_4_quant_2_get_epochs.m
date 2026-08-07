@@ -114,7 +114,7 @@ index_UniqueComboKeys     = strings(0,1);
 
 % Counters
 processed        = 0;   % rows with existing .set (even if 0 epochs)
-skipped_missing  = 0;   % rows whose processed .set was missing
+skipped_missing  = 0;   % rows whose processed .set was missing or failed to load
 
 %% 4) Process each row
 for k = 1:totalToDo
