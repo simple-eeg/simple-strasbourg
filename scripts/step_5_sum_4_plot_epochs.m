@@ -1,6 +1,6 @@
 %% step_5_sum_4_plot_epochs.m
 % Purpose
-%   Plot individual epoch–channel items from pooled outputs (Step 4.3), paging
+%   Plot individual epoch–channel items from pooled outputs (Step 5.3), paging
 %   through as many 3×3 subplot figures as needed. Figures are displayed only
 %   (not saved).
 %

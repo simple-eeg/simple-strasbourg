@@ -1,6 +1,6 @@
 %% step_5_sum_3_summarise_pooled.m
 % Purpose
-%   Pool (concatenate) all per-dataset EEG summary outputs produced by Step 4.2
+%   Pool (concatenate) all per-dataset EEG summary outputs produced by Step 5.2
 %   into project-level "pooled" files. This script does NOT transform or derive
 %   any new features; it simply reads, type-stabilizes, validates lightly, and
 %   concatenates data as-is.
@@ -269,7 +269,7 @@ for r = 1:height(T)
     srate_here = NaN;
     epochs_found = false;
     if hasMAT
-        S = load(f_mat_abs);  % expects variable "epochs" per Step 4.2
+        S = load(f_mat_abs);  % expects variable "epochs" per Step 5.2
         if isfield(S, 'epochs')
             E = S.epochs;
             epochs_found = true;
@@ -284,7 +284,7 @@ for r = 1:height(T)
             % Copy numeric/cell fields (with enforced 3-D data)
             ep.data                  = data_here;
             ep.times_ms              = E.times_ms;
-            % Your Step 4.2 saved channel labels under "channels"
+            % Your Step 5.2 saved channel labels under "channels"
             if isfield(E, 'channels')
                 ep.channels = E.channels;
             elseif isfield(E,'chanlabels')
