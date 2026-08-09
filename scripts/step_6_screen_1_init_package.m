@@ -1,5 +1,5 @@
 %% step_6_screen_1_init_package.m
-% Create an immutable, self-contained screening package for epoch–channel rating.
+% Create a workflow-fixed, self-contained screening package for epoch–channel rating.
 %
 % Output:
 %   <baseDir>/data/summary/screening/screening_package.mat
@@ -10,6 +10,8 @@
 %   - qc_values        : numeric matrix [nItems x nQCFeatures], NaN where missing
 %   - qc_feature_names : cellstr of QC feature column names used (user-specified)
 %   - qc_found         : logical [nItems x 1] (true if any QC row matched the key)
+%   - hash_schema      : versioned package-source hash schema
+%   - source_hashes    : component SHA-256 hashes for the pooled inputs + feature list
 %   - package_hash     : SHA-256 hash tying package to the pooled inputs + feature list
 %   - created_utc      : UTC timestamp
 %   - source paths     : source_epochs_mat, source_qc_csv
@@ -33,6 +35,8 @@ screenDir = fullfile(baseDir, 'data', 'summary', 'screening');
 
 epochsMat = fullfile(pooledDir, 'pooled_eeg_epochs.mat');        % expects variable epochs_pooled
 qcCsv     = fullfile(pooledDir, 'pooled_eeg_qc_features.csv');   % long-format QC table
+
+hashSchema = 'screening-package-source-sha256-v2';
 
 % QC feature columns to import from pooled_eeg_qc_features.csv (must match headers exactly).
 % Default below matches your current pipeline; edit as needed for other datasets.
@@ -302,7 +306,7 @@ hash_epochs = sha256_file(epochsMat);
 hash_qc     = sha256_file(qcCsv);
 hash_feats  = sha256_string(strjoin(string(qcFeatureNames), ','));
 
-package_hash = sha256_string(hash_epochs + "|" + hash_qc + "|" + hash_feats);
+package_hash = sha256_string(string(hashSchema) + "|" + hash_epochs + "|" + hash_qc + "|" + hash_feats);
 
 created_utc = char(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z'''));
 
@@ -315,6 +319,11 @@ package.source_epochs_mat = epochsMat;
 package.source_qc_csv     = qcCsv;
 
 package.qc_feature_names  = qcFeatureNames;
+package.hash_schema       = hashSchema;
+package.source_hashes     = struct( ...
+    'epochs_sha256', char(hash_epochs), ...
+    'qc_sha256', char(hash_qc), ...
+    'feature_list_sha256', char(hash_feats));
 package.package_hash      = char(package_hash);
 
 package.epochs_pooled     = epochs_pooled;
@@ -345,47 +354,42 @@ log_command_window('stop');
 
 %% ───────────────────────────── Local helpers ─────────────────────────────
 function h = sha256_file(filePath)
-%SHA256_FILE Compute SHA-256 hash of a file using streaming Java digest.
+%SHA256_FILE Compute SHA-256 of the actual file bytes using binary streaming.
 if ~isfile(filePath)
     error('sha256_file:FileNotFound', 'File not found: %s', filePath);
 end
 
-try
-    md = java.security.MessageDigest.getInstance('SHA-256');
-    fis = java.io.FileInputStream(java.io.File(filePath));
-
-    % 1 MiB buffer (reasonable compromise)
-    bufSize = 1024 * 1024;
-    buffer  = zeros(1, bufSize, 'int8');
-
-    while true
-        n = fis.read(buffer, 0, bufSize);
-        if n == -1
-            break;
-        end
-        md.update(buffer(1:n));
-    end
-
-    fis.close();
-    d = md.digest();          % int8 array
-    h = bytes2hex(d);
-
-catch ME
-    % Best-effort close if partially opened
-    try %#ok<TRYNC>
-        if exist('fis', 'var') && ~isempty(fis)
-            fis.close();
-        end
-    end
-    rethrow(ME);
+fid = fopen(filePath, 'rb');
+if fid == -1
+    error('sha256_file:OpenFailed', 'Failed to open file for binary reading: %s', filePath);
 end
+cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+md = java.security.MessageDigest.getInstance('SHA-256');
+bufSize = 1024 * 1024;
+
+while true
+    [bytes, nRead] = fread(fid, bufSize, '*uint8');
+    if nRead == 0
+        break;
+    end
+    md.update(reshape(typecast(bytes(:), 'int8'), 1, []));
+end
+
+[readMessage, readErrno] = ferror(fid);
+if readErrno ~= 0 && ~(readErrno == -4 && feof(fid))
+    error('sha256_file:ReadFailed', 'Failed while reading file %s: %s', filePath, readMessage);
+end
+
+d = md.digest();
+h = bytes2hex(d);
 end
 
 function h = sha256_string(s)
 %SHA256_STRING Compute SHA-256 hash of a UTF-8 string using Java digest.
 md = java.security.MessageDigest.getInstance('SHA-256');
 bytes = unicode2native(char(s), 'UTF-8'); % uint8 row vector
-md.update(int8(bytes));
+md.update(reshape(typecast(bytes(:), 'int8'), 1, []));
 d = md.digest();
 h = bytes2hex(d);
 end

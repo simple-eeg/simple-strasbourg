@@ -48,6 +48,8 @@ epochsMat_out = fullfile(screeningDir, 'pooled_screened_eeg_epochs.mat');
 qcCsv_out     = fullfile(screeningDir, 'pooled_screened_eeg_qc_features.csv');
 nrfCsv_out    = fullfile(screeningDir, 'pooled_screened_eeg_nrf_features.csv');
 
+hashSchema = 'screening-package-source-sha256-v2';
+
 %% ───────────────────────────── PRE-FLIGHT ─────────────────────────────
 fprintf('Applying screening decisions to pooled outputs.\n');
 
@@ -67,19 +69,42 @@ P = load(packagePath);
 assert(isfield(P, 'package'), 'screening_package.mat must contain variable "package".');
 package = P.package;
 
-needPkg = {'package_hash','items','items_key','epochs_pooled','qc_feature_names'};
+if ~isfield(package, 'hash_schema')
+    error('Screening:Apply:LegacyPackage', ...
+        ['screening_package.mat has no hash_schema and is a preserved legacy package. ', ...
+        'Do not edit or upgrade it in place; create a new version-2 package separately.']);
+end
+if isstring(package.hash_schema) && isscalar(package.hash_schema)
+    package.hash_schema = char(package.hash_schema);
+end
+assert(ischar(package.hash_schema), 'package.hash_schema must be char or a string scalar convertible to char.');
+if ~strcmp(package.hash_schema, hashSchema)
+    error('Screening:Apply:UnknownHashSchema', ...
+        'Unsupported package hash schema "%s" (expected "%s").', package.hash_schema, hashSchema);
+end
+
+needPkg = {'package_hash','source_hashes','items','items_key','epochs_pooled','qc_feature_names'};
 for k = 1:numel(needPkg)
     assert(isfield(package, needPkg{k}), 'package.%s missing from screening_package.mat', needPkg{k});
 end
 assert(istable(package.items), 'package.items must be a table.');
 assert(isstring(package.items_key), 'package.items_key must be a string array.');
 assert(numel(package.items_key) == height(package.items), 'package.items_key length mismatch vs items height.');
-
-% Normalise package_hash to char
-if isstring(package.package_hash) && isscalar(package.package_hash)
-    package.package_hash = char(package.package_hash);
+assert(isstruct(package.source_hashes) && isscalar(package.source_hashes), ...
+    'package.source_hashes must be a scalar struct.');
+needSourceHashes = {'epochs_sha256','qc_sha256','feature_list_sha256'};
+for k = 1:numel(needSourceHashes)
+    assert(isfield(package.source_hashes, needSourceHashes{k}), ...
+        'package.source_hashes.%s missing from screening_package.mat', needSourceHashes{k});
 end
-assert(ischar(package.package_hash), 'package.package_hash must be char or a string scalar convertible to char.');
+
+package.package_hash = normalise_sha256(package.package_hash, 'package.package_hash');
+package.source_hashes.epochs_sha256 = normalise_sha256( ...
+    package.source_hashes.epochs_sha256, 'package.source_hashes.epochs_sha256');
+package.source_hashes.qc_sha256 = normalise_sha256( ...
+    package.source_hashes.qc_sha256, 'package.source_hashes.qc_sha256');
+package.source_hashes.feature_list_sha256 = normalise_sha256( ...
+    package.source_hashes.feature_list_sha256, 'package.source_hashes.feature_list_sha256');
 
 nItems = height(package.items);
 
@@ -89,6 +114,22 @@ D = load(decisionsPath);
 assert(isfield(D, 'decisions'), 'screening_decisions.mat must contain variable "decisions".');
 decisions = D.decisions;
 
+if ~isfield(decisions, 'hash_schema')
+    error('Screening:Apply:LegacyDecisions', ...
+        ['screening_decisions.mat has no hash_schema and is a preserved legacy decision file. ', ...
+        'Do not edit or upgrade it in place; create new decisions for a version-2 package.']);
+end
+if isstring(decisions.hash_schema) && isscalar(decisions.hash_schema)
+    decisions.hash_schema = char(decisions.hash_schema);
+end
+assert(ischar(decisions.hash_schema), ...
+    'decisions.hash_schema must be char or a string scalar convertible to char.');
+if ~strcmp(decisions.hash_schema, hashSchema) || ~strcmp(decisions.hash_schema, package.hash_schema)
+    error('Screening:Apply:HashSchemaMismatch', ...
+        'Decision/package hash schema mismatch (decision="%s", package="%s", expected="%s").', ...
+        decisions.hash_schema, package.hash_schema, hashSchema);
+end
+
 needDec = {'exclude_mask','package_hash','last_saved_utc'};
 for k = 1:numel(needDec)
     assert(isfield(decisions, needDec{k}), 'decisions.%s missing from screening_decisions.mat', needDec{k});
@@ -97,11 +138,7 @@ assert(islogical(decisions.exclude_mask), 'decisions.exclude_mask must be logica
 assert(numel(decisions.exclude_mask) == nItems, ...
     'decisions.exclude_mask length mismatch (expected %d).', nItems);
 
-% Normalise decisions.package_hash to char
-if isstring(decisions.package_hash) && isscalar(decisions.package_hash)
-    decisions.package_hash = char(decisions.package_hash);
-end
-assert(ischar(decisions.package_hash), 'decisions.package_hash must be char or a string scalar convertible to char.');
+decisions.package_hash = normalise_sha256(decisions.package_hash, 'decisions.package_hash');
 
 assert(strcmp(decisions.package_hash, package.package_hash), ...
     'Package hash mismatch: decisions do not correspond to this screening_package.mat.');
@@ -128,7 +165,14 @@ hash_epochs = sha256_file(epochsMat_in);
 hash_qc     = sha256_file(qcCsv_in);
 hash_feats  = sha256_string(strjoin(string(qcFeat), ','));
 
-pkg_hash_now = sha256_string(string(hash_epochs) + "|" + string(hash_qc) + "|" + string(hash_feats));
+assert(strcmp(hash_epochs, package.source_hashes.epochs_sha256), ...
+    'Pooled epochs SHA-256 does not match package.source_hashes.epochs_sha256.');
+assert(strcmp(hash_qc, package.source_hashes.qc_sha256), ...
+    'Pooled QC SHA-256 does not match package.source_hashes.qc_sha256.');
+assert(strcmp(hash_feats, package.source_hashes.feature_list_sha256), ...
+    'QC feature-list SHA-256 does not match package.source_hashes.feature_list_sha256.');
+
+pkg_hash_now = sha256_string(string(hashSchema) + "|" + string(hash_epochs) + "|" + string(hash_qc) + "|" + string(hash_feats));
 pkg_hash_now = char(pkg_hash_now);
 
 assert(strcmp(pkg_hash_now, package.package_hash), ...
@@ -371,25 +415,31 @@ error('%s', msg);
 end
 
 function h = sha256_file(filePath)
-% Compute SHA-256 hash of a file using streaming Java digest.
+%SHA256_FILE Compute SHA-256 of the actual file bytes using binary streaming.
 if ~isfile(filePath)
     error('sha256_file:FileNotFound', 'File not found: %s', filePath);
 end
 
+fid = fopen(filePath, 'rb');
+if fid == -1
+    error('sha256_file:OpenFailed', 'Failed to open file for binary reading: %s', filePath);
+end
+cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
 md = java.security.MessageDigest.getInstance('SHA-256');
-fis = java.io.FileInputStream(java.io.File(filePath));
-
-bufSize = 1024 * 1024; % 1 MiB buffer
-buffer  = zeros(1, bufSize, 'int8');
-
-cleanup = onCleanup(@() try_close(fis));
+bufSize = 1024 * 1024;
 
 while true
-    n = fis.read(buffer, 0, bufSize);
-    if n == -1
+    [bytes, nRead] = fread(fid, bufSize, '*uint8');
+    if nRead == 0
         break;
     end
-    md.update(buffer(1:n));
+    md.update(reshape(typecast(bytes(:), 'int8'), 1, []));
+end
+
+[readMessage, readErrno] = ferror(fid);
+if readErrno ~= 0 && ~(readErrno == -4 && feof(fid))
+    error('sha256_file:ReadFailed', 'Failed while reading file %s: %s', filePath, readMessage);
 end
 
 d = md.digest();
@@ -397,23 +447,29 @@ h = bytes2hex(d);
 end
 
 function h = sha256_string(s)
-% Compute SHA-256 hash of a UTF-8 string using Java digest.
+%SHA256_STRING Compute SHA-256 hash of a UTF-8 string using Java digest.
 md = java.security.MessageDigest.getInstance('SHA-256');
 bytes = unicode2native(char(s), 'UTF-8');
-md.update(int8(bytes));
+md.update(reshape(typecast(bytes(:), 'int8'), 1, []));
 d = md.digest();
 h = bytes2hex(d);
 end
 
 function h = bytes2hex(javaInt8Array)
+%BYTES2HEX Convert Java int8[] digest into lowercase hex char vector.
 u = typecast(javaInt8Array, 'uint8');
 h = lower(reshape(dec2hex(u, 2).', 1, []));
 end
 
-function try_close(fis)
-try %#ok<TRYNC>
-    if ~isempty(fis)
-        fis.close();
-    end
+function h = normalise_sha256(value, label)
+if isstring(value) && isscalar(value)
+    value = char(value);
+end
+if ~ischar(value) || size(value, 1) ~= 1
+    error('%s must be a character vector or string scalar.', label);
+end
+h = lower(strtrim(value));
+if isempty(regexp(h, '^[0-9a-f]{64}$', 'once'))
+    error('%s must contain exactly 64 hexadecimal SHA-256 characters.', label);
 end
 end

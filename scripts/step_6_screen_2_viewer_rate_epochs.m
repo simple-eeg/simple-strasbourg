@@ -1,6 +1,6 @@
 %% step_6_screen_2_viewer_rate_epochs.m
 % Purpose
-%   - Load screening_package.mat (immutable) from data/summary/screening/
+%   - Load screening_package.mat (workflow-fixed) from data/summary/screening/
 %   - Create/load screening_decisions.mat (mutable)
 %   - Provide a mouse-only viewer to rate (exclude/un-exclude) each epoch–channel item
 %   - Autosave decisions atomically on each decision change
@@ -27,6 +27,7 @@ screeningDir = fullfile(baseDir, 'data', 'summary', 'screening');
 
 packagePath  = fullfile(screeningDir, 'screening_package.mat');
 decPath      = fullfile(screeningDir, 'screening_decisions.mat');
+hashSchema   = 'screening-package-source-sha256-v2';
 
 %% User-editable plotting defaults
 fixed_ylim_units  = [-100, 100];    % same units as stored in epochs_pooled.data
@@ -67,7 +68,7 @@ QC_FEATURE_LIST = { ...
 %   - Box spans q1..q3, median at q2
 %   - Upper whisker starts at q3 and extends in the positive direction only
 %   - No outlier markers
-QC_BOXPLOT_WHISKER = 5;              % multiplier w in q3 + w*IQR
+QC_BOXPLOT_WHISKER = 6;              % multiplier w in q3 + w*IQR
 QC_BOXPLOT_WHISKER_MODE = "threshold"; % "threshold" or "adjacent"
 
 %% Validate/normalise SHOW_GLOBAL_TITLE (accept true/false or 1/0)
@@ -116,18 +117,41 @@ P = load(packagePath);
 assert(isfield(P, 'package'), 'screening_package.mat must contain variable "package".');
 package = P.package;
 
+if ~isfield(package, 'hash_schema')
+    error('Screening:Viewer:LegacyPackage', ...
+        ['screening_package.mat has no hash_schema and is a preserved legacy package. ', ...
+        'Do not edit or upgrade it in place; create a new version-2 package separately.']);
+end
+if isstring(package.hash_schema) && isscalar(package.hash_schema)
+    package.hash_schema = char(package.hash_schema);
+end
+assert(ischar(package.hash_schema), 'package.hash_schema must be char or a string scalar convertible to char.');
+if ~strcmp(package.hash_schema, hashSchema)
+    error('Screening:Viewer:UnknownHashSchema', ...
+        'Unsupported package hash schema "%s" (expected "%s").', package.hash_schema, hashSchema);
+end
+
 % Validate expected package fields (tight but readable)
-needPkg = {'package_hash','items','epochs_pooled','qc_feature_names','qc_values'};
+needPkg = {'package_hash','source_hashes','items','epochs_pooled','qc_feature_names','qc_values'};
 for k = 1:numel(needPkg)
     assert(isfield(package, needPkg{k}), 'package.%s missing from screening_package.mat', needPkg{k});
 end
 assert(istable(package.items), 'package.items must be a table.');
-
-% Normalise package_hash to char (tolerate string scalar)
-if isstring(package.package_hash) && isscalar(package.package_hash)
-    package.package_hash = char(package.package_hash);
+assert(isstruct(package.source_hashes) && isscalar(package.source_hashes), ...
+    'package.source_hashes must be a scalar struct.');
+needSourceHashes = {'epochs_sha256','qc_sha256','feature_list_sha256'};
+for k = 1:numel(needSourceHashes)
+    assert(isfield(package.source_hashes, needSourceHashes{k}), ...
+        'package.source_hashes.%s missing from screening_package.mat', needSourceHashes{k});
 end
-assert(ischar(package.package_hash), 'package.package_hash must be char or a string scalar convertible to char.');
+
+package.package_hash = normalise_sha256(package.package_hash, 'package.package_hash');
+package.source_hashes.epochs_sha256 = normalise_sha256( ...
+    package.source_hashes.epochs_sha256, 'package.source_hashes.epochs_sha256');
+package.source_hashes.qc_sha256 = normalise_sha256( ...
+    package.source_hashes.qc_sha256, 'package.source_hashes.qc_sha256');
+package.source_hashes.feature_list_sha256 = normalise_sha256( ...
+    package.source_hashes.feature_list_sha256, 'package.source_hashes.feature_list_sha256');
 
 qc_features_all = package.qc_feature_names;
 qc_values_all   = package.qc_values;
@@ -143,6 +167,15 @@ assert(all(cellfun(@(x) ischar(x) || (isstring(x) && isscalar(x)), qc_features_a
 qc_features_all = cellfun(@char, qc_features_all, 'UniformOutput', false);
 assert(all(cellfun(@ischar, qc_features_all)), 'package.qc_feature_names must contain text entries convertible to char.');
 assert(numel(qc_features_all) == size(qc_values_all,2), 'QC feature count must match qc_values columns.');
+
+hash_feats = sha256_string(strjoin(string(qc_features_all), ','));
+assert(strcmp(hash_feats, package.source_hashes.feature_list_sha256), ...
+    'Package QC feature list does not match package.source_hashes.feature_list_sha256.');
+package_hash_from_components = sha256_string( ...
+    string(hashSchema) + "|" + string(package.source_hashes.epochs_sha256) + "|" + ...
+    string(package.source_hashes.qc_sha256) + "|" + string(package.source_hashes.feature_list_sha256));
+assert(strcmp(package_hash_from_components, package.package_hash), ...
+    'Package hash is inconsistent with its version-2 schema and stored component hashes.');
 
 n_items = height(package.items);
 assert(size(qc_values_all,1) == n_items, 'QC values must have one row per item (expected %d).', n_items);
@@ -192,6 +225,22 @@ if isfile(decPath)
     assert(isfield(D,'decisions'), 'screening_decisions.mat must contain variable "decisions".');
     decisions = D.decisions;
 
+    if ~isfield(decisions, 'hash_schema')
+        error('Screening:Viewer:LegacyDecisions', ...
+            ['screening_decisions.mat has no hash_schema and is a preserved legacy decision file. ', ...
+            'Do not edit or upgrade it in place; create new decisions for a version-2 package.']);
+    end
+    if isstring(decisions.hash_schema) && isscalar(decisions.hash_schema)
+        decisions.hash_schema = char(decisions.hash_schema);
+    end
+    assert(ischar(decisions.hash_schema), ...
+        'decisions.hash_schema must be char or a string scalar convertible to char.');
+    if ~strcmp(decisions.hash_schema, hashSchema) || ~strcmp(decisions.hash_schema, package.hash_schema)
+        error('Screening:Viewer:HashSchemaMismatch', ...
+            'Decision/package hash schema mismatch (decision="%s", package="%s", expected="%s").', ...
+            decisions.hash_schema, package.hash_schema, hashSchema);
+    end
+
     assert(isfield(decisions,'exclude_mask') && islogical(decisions.exclude_mask), ...
         'decisions.exclude_mask missing or not logical.');
     assert(numel(decisions.exclude_mask) == n_items, ...
@@ -199,11 +248,7 @@ if isfile(decPath)
 
     assert(isfield(decisions,'package_hash'), 'decisions.package_hash missing.');
 
-    % Normalise to char (tolerate string scalar)
-    if isstring(decisions.package_hash) && isscalar(decisions.package_hash)
-        decisions.package_hash = char(decisions.package_hash);
-    end
-    assert(ischar(decisions.package_hash), 'decisions.package_hash must be char or a string scalar convertible to char.');
+    decisions.package_hash = normalise_sha256(decisions.package_hash, 'decisions.package_hash');
 
     if ~strcmp(decisions.package_hash, package.package_hash)
         error(['Decisions file does not match this package (package_hash mismatch). ', ...
@@ -219,6 +264,7 @@ if isfile(decPath)
     end
 else
     decisions.exclude_mask   = false(n_items,1);
+    decisions.hash_schema    = package.hash_schema;
     decisions.package_hash   = package.package_hash;
     decisions.last_saved_utc = '';
 end
@@ -1075,6 +1121,9 @@ end
 
 %% ───────────────────────────── Persistence ────────────────────────────
 function S = save_decisions_atomic(S)
+assert(isfield(S.decisions, 'hash_schema') && strcmp(S.decisions.hash_schema, S.package.hash_schema), ...
+    'Refusing to save decisions with a missing or mismatched hash schema.');
+
 % Update last_saved_utc
 dtISO = char(datetime('now','TimeZone','UTC','Format','yyyy-MM-dd''T''HH:mm:ss''Z'''));
 S.decisions.last_saved_utc = dtISO;
@@ -1093,5 +1142,31 @@ save(tmpPath, 'decisions', '-v7');
 [ok, msg] = movefile(tmpPath, S.decPath, 'f');
 if ~ok
     warning('SIMPLE:Screening:SaveFailed', 'Failed to save decisions file: %s', msg);
+end
+end
+
+function h = sha256_string(s)
+md = java.security.MessageDigest.getInstance('SHA-256');
+bytes = unicode2native(char(s), 'UTF-8');
+md.update(reshape(typecast(bytes(:), 'int8'), 1, []));
+d = md.digest();
+h = bytes2hex(d);
+end
+
+function h = bytes2hex(javaInt8Array)
+u = typecast(javaInt8Array, 'uint8');
+h = lower(reshape(dec2hex(u, 2).', 1, []));
+end
+
+function h = normalise_sha256(value, label)
+if isstring(value) && isscalar(value)
+    value = char(value);
+end
+if ~ischar(value) || size(value, 1) ~= 1
+    error('%s must be a character vector or string scalar.', label);
+end
+h = lower(strtrim(value));
+if isempty(regexp(h, '^[0-9a-f]{64}$', 'once'))
+    error('%s must contain exactly 64 hexadecimal SHA-256 characters.', label);
 end
 end
