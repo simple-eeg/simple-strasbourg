@@ -393,10 +393,18 @@ Corresponds to `simple-framework` Step 5.
 
 The scripts:
 
-- save figures for excluded epoch–channel items
-- display retained epoch–channel items
-- display averaged time-series, time–frequency, and power-spectral-density views
+- save a rollback-safe, verified PNG batch for excluded epoch–channel items
+- display retained epoch–channel items, with strict screening and requested-NRF-overlay coherence checks
+- display Simple, NRF-shifted, or Woody group time series and configurable time–frequency and power-spectral-density views
 - perform paired QC and NRF separation checks at the recording–channel key defined by subject, session, run, and channel
+- atomically save each paired separation result, its exact ordered within-pair differences, bootstrap settings, and source identities using schema `simple-paired-separation-result-v2`
+
+The group time-series script keeps recording-level contributions and offers mean or median aggregation with optional smoothing. Its Strasbourg defaults retain the preterm NRF route and the Strasbourg epoch geometry; these are dataset-specific settings rather than universal SIMPLE rules. The paired checks compute the selected mean or median directly from complete recording-level `true - internal reference` differences and obtain the corresponding 95% paired BCa bootstrap interval from those difference rows.
+
+Steps 7.2–7.5 are display-only apart from their Command Window logs. Step 7.1 writes the excluded-item PNG batch, while Steps 7.6 and 7.7 write the machine-readable result files:
+
+- `data/summary/screening/step_7_check_6_sep_check_qc_result.mat`
+- `data/summary/screening/step_7_check_7_sep_check_nrf_result.mat`
 
 ### Detailed common documentation
 
@@ -514,7 +522,9 @@ Across the full workflow, the principal generated outputs include:
 - individual and pooled QC, NRF, and epoch summaries
 - screening package and screening decisions
 - screened pooled outputs carrying `Exclude` flags
-- post-screening figures and console summaries
+- the verified excluded-item PNG batch
+- display-only post-screening figures and console summaries
+- schema-v2 paired QC and NRF separation result MAT files
 - the three Step 8 CSV files
 - per-script Command Window logs
 

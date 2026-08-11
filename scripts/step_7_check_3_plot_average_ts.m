@@ -16,7 +16,7 @@
 %   6) Store the result in table `ts_all` (time, EEG_avg, NRF overlays),
 %      and optionally plot EEG + NRF overlays in a single figure.
 %
-% Inputs (screened; must already exist from Step 5.3 apply-decisions)
+% Inputs (screened; must already exist from Step 6.3 apply-decisions)
 %   <baseDir>/data/summary/screening/pooled_screened_eeg_epochs.mat
 %     - variable: epochs_pooled (struct array, one element per dataset)
 %     - required field on each element: Exclude [nCh x nEp] logical
@@ -34,6 +34,8 @@
 % Outputs (in workspace)
 %   - ts_all       : table with columns:
 %                      time_ms, EEG_avg, <one column per NRF overlay>
+%   - averageInfo  : method settings, realised smoothing/support, and
+%                    identity-bound alignment diagnostics
 %   - overlayFits  : struct of fit structs per NRF (if getNRFOverlays == true)
 %   - Figure       : one figure showing EEG_avg ± NRF overlays (if plotNRFOverlays == true)
 
@@ -58,7 +60,7 @@ assert(isfile(screened_mat_file), 'Missing screened epochs MAT: %s', screened_ma
 % 2A. Filters: which channel / eventtype?
 
 channelFilter   = "Cz";       % channel label (matched case-insensitively, after trimming whitespace)
-eventtypeFilter = "cannula";    % case-sensitive eventtype
+eventtypeFilter = "cannula";  % case-sensitive eventtype
 
 % 2B. Exclusion toggle (the only exclusion mechanism)
 useExclusionFlags = true;     % if true: drop items flagged Exclude; if false: ignore Exclude entirely
@@ -79,22 +81,23 @@ smoothingMs = 0;
 shiftNRFName = "noxious_preterm_NRF_500Hz";
 
 % Woody-options (used ONLY if averagingApproach == "woody")
+% The ROI must leave the full requested max-shift margin at both epoch ends.
+% Strasbourg epochs extend through +1200 ms, so [0 1000] supports +/-50 ms.
 woodyROI        = [0 1000];   % ms; search ROI for latency shifts
 woodyMaxShiftMs = 50;         % ms; max |shift| allowed
-woodyIterations = 10;         % fixed number of alignment iterations
+woodyMaxIterations = 100;     % safety cap; exact shift-vector fixed point is required
 
 % 2D. NRF overlay options
 
 % Whether to compute NRF overlay time series (via ts_nrf_overlay)
 getNRFOverlays  = true;
 
-% Whether to plot NRF overlays on top of the EEG average
+% Whether to create the figure and plot the selected NRF overlays on the EEG average
 plotNRFOverlays = true;
 
-% Which NRFs to compute overlay time series for (0–N entries allowed)
+% Which NRFs to compute overlay time series for (0–N entries allowed).
+% Strasbourg uses only the preterm noxious template for this route.
 overlayNRFNames_to_compute = [ ...
-    "early_NRF_500Hz"; ...
-    "noxious_NRF_500Hz"; ...
     "noxious_preterm_NRF_500Hz" ...
     ];
 
@@ -117,15 +120,15 @@ jitter_map = struct( ...
     );
 
 % 2F. Plot configuration
-xlim_window_ms = [-100 1150];   % ms
+xlim_window_ms = [-100 1150];  % ms
 ylim_window_uV = [-20 20];      % microvolts
 
 colour_time_zero = [0.6 0.6 0.6];
 
 overlayColours = struct();
 overlayColours.early_NRF_500Hz           = [20 204 204] / 255;  % cyan-ish
-overlayColours.noxious_NRF_500Hz         = [0 0.5 0];           % red
-overlayColours.noxious_preterm_NRF_500Hz = [1 0 0];             % dark green
+overlayColours.noxious_NRF_500Hz         = [0 0.5 0];           % dark green
+overlayColours.noxious_preterm_NRF_500Hz = [1 0 0];             % red
 
 %% ────────────────────────── 3) Validate user-config ──────────────────────────
 averagingApproach          = lower(string(averagingApproach));
@@ -133,6 +136,27 @@ aggregator                 = lower(string(aggregator));
 shiftNRFName               = string(shiftNRFName);
 overlayNRFNames_to_compute = string(overlayNRFNames_to_compute(:));
 overlayNRFNames_to_plot    = string(overlayNRFNames_to_plot(:));
+
+if ~(isscalar(channelFilter) && strlength(strtrim(string(channelFilter))) > 0)
+    error('Config error: channelFilter must be one non-empty label.');
+end
+if ~(isscalar(eventtypeFilter) && strlength(strtrim(string(eventtypeFilter))) > 0)
+    error('Config error: eventtypeFilter must be one non-empty label.');
+end
+channelFilter   = string(channelFilter);
+eventtypeFilter = string(eventtypeFilter);
+
+if ~(isscalar(averagingApproach) && isscalar(aggregator))
+    error('Config error: averagingApproach and aggregator must each be scalar strings.');
+end
+if ~(islogical(useExclusionFlags) && isscalar(useExclusionFlags) && ...
+        islogical(getNRFOverlays) && isscalar(getNRFOverlays) && ...
+        islogical(plotNRFOverlays) && isscalar(plotNRFOverlays))
+    error('Config error: useExclusionFlags, getNRFOverlays, and plotNRFOverlays must be logical scalars.');
+end
+if ~(isnumeric(smoothingMs) && isreal(smoothingMs) && isscalar(smoothingMs) && isfinite(smoothingMs) && smoothingMs >= 0)
+    error('Config error: smoothingMs must be one finite value >= 0 ms.');
+end
 
 validApproaches = ["simple","nrfshifted","woody"];
 if ~ismember(averagingApproach, validApproaches)
@@ -163,9 +187,11 @@ else
     overlayNRFNames_to_plot    = strings(0,1);
 end
 
-if averagingApproach == "nrfshifted" && strlength(shiftNRFName) == 0
+if averagingApproach == "nrfshifted" && ...
+        (~isscalar(shiftNRFName) || ismissing(shiftNRFName) || strlength(strtrim(shiftNRFName)) == 0)
     error('Config error: averagingApproach="NRFshifted" requires shiftNRFName to be set.');
 end
+shiftNRFName = strtrim(shiftNRFName);
 
 %% ────────────────────────── 4) Load screened epochs and assemble series ──────────────────────────
 S = load(screened_mat_file);   % expects variable 'epochs_pooled'
@@ -181,7 +207,7 @@ end
 % Hard requirement: Exclude must be present (even if ignoring it)
 if ~isfield(epochs_pooled, 'Exclude')
     error(['Expected field "Exclude" on epochs_pooled (screened MAT). ', ...
-        'This indicates Step 5.3 (apply-decisions) has not been run, or the wrong file was used.']);
+        'This indicates Step 6.3 (apply-decisions) has not been run, or the wrong file was used.']);
 end
 
 ts               = [];            % [n_points x n_series]
@@ -199,8 +225,11 @@ for i = 1:numel(epochs_pooled)
     ep = epochs_pooled(i);
 
     % Basic required fields
-    if ~isfield(ep,'data') || ~isfield(ep,'times_ms') || ~isfield(ep,'channels') || ~isfield(ep,'eventtype') || ~isfield(ep,'epoch_index') || ~isfield(ep,'srate')
-        error('Dataset %d is missing required fields (data/times_ms/channels/eventtype/epoch_index/srate).', i);
+    if ~isfield(ep,'data') || ~isfield(ep,'times_ms') || ~isfield(ep,'channels') || ...
+            ~isfield(ep,'eventtype') || ~isfield(ep,'epoch_index') || ~isfield(ep,'srate') || ...
+            ~isfield(ep,'subjectID') || ~isfield(ep,'sessionID') || ~isfield(ep,'runID')
+        error(['Dataset %d is missing required fields ', ...
+            '(data/times_ms/channels/eventtype/epoch_index/srate/subjectID/sessionID/runID).'], i);
     end
 
     % Validate Exclude for this dataset
@@ -210,26 +239,46 @@ for i = 1:numel(epochs_pooled)
     if ~islogical(ep.Exclude)
         error('Dataset %d: Exclude must be logical.', i);
     end
-    if ndims(ep.data) ~= 3
+    if ndims(ep.data) > 3
         error('Dataset %d: expected ep.data as [nCh x nPts x nEp].', i);
     end
+    if ~isnumeric(ep.data) || ~isreal(ep.data)
+        error('Dataset %d: data must be a real numeric array.', i);
+    end
     nCh = size(ep.data,1);
+    nPts = size(ep.data,2);
     nEp = size(ep.data,3);
     if ~isequal(size(ep.Exclude), [nCh, nEp])
         error('Dataset %d: Exclude has wrong shape. Expected [%d x %d].', i, nCh, nEp);
     end
 
-    subj = string(strtrim(ep.subjectID));
-    sess = string(strtrim(ep.sessionID));
-    run  = string(strtrim(ep.runID));
+    subj = strtrim(string(ep.subjectID));
+    sess = strtrim(string(ep.sessionID));
+    run  = strtrim(string(ep.runID));
+    if ~(isscalar(subj) && isscalar(sess) && isscalar(run)) || ...
+            any(ismissing([subj, sess, run])) || any(strlength([subj, sess, run]) == 0)
+        error('Dataset %d: subjectID, sessionID, and runID must each be one non-empty value.', i);
+    end
 
     chLabels = string(ep.channels(:));
     evtTypes = string(ep.eventtype(:));
+    if ~(isnumeric(ep.epoch_index) && isreal(ep.epoch_index))
+        error('Dataset %d: epoch_index must be a real numeric vector.', i);
+    end
     epIndex  = double(ep.epoch_index(:));
 
-    chIdx = find(lower(strtrim(chLabels)) == lower(strtrim(channelFilter)), 1, 'first');
-    if isempty(chIdx)
-        continue;
+    if numel(chLabels) ~= nCh
+        error('Dataset %d: channels has %d labels but data has %d channels.', i, numel(chLabels), nCh);
+    end
+    if numel(evtTypes) ~= nEp || numel(epIndex) ~= nEp
+        error('Dataset %d: eventtype and epoch_index must each contain %d entries.', i, nEp);
+    end
+    if any(ismissing(chLabels)) || any(ismissing(evtTypes)) || ...
+            any(strlength(strtrim(chLabels)) == 0) || any(strlength(strtrim(evtTypes)) == 0)
+        error('Dataset %d: channels and eventtype must contain non-empty labels.', i);
+    end
+    if any(~isfinite(epIndex)) || any(mod(epIndex,1) ~= 0) || numel(unique(epIndex)) ~= nEp
+        error('Dataset %d: epoch_index values must be finite, integer-valued, and unique.', i);
     end
 
     keepEpochs = find(evtTypes == eventtypeFilter);
@@ -237,19 +286,57 @@ for i = 1:numel(epochs_pooled)
         continue;
     end
 
+    matching_channels = find(lower(strtrim(chLabels)) == lower(strtrim(channelFilter)));
+    if isempty(matching_channels)
+        continue;
+    end
+    if numel(matching_channels) ~= 1
+        error('Dataset %d: channelFilter="%s" matches %d channel labels; exactly one is required.', ...
+            i, char(channelFilter), numel(matching_channels));
+    end
+    chIdx = matching_channels(1);
+
+    if ~(isnumeric(ep.times_ms) && isreal(ep.times_ms))
+        error('Dataset %d: times_ms must be a real numeric vector.', i);
+    end
+    if ~(isnumeric(ep.srate) && isreal(ep.srate))
+        error('Dataset %d: srate must be a real numeric scalar.', i);
+    end
+    this_times = double(ep.times_ms(:));
+    this_srate = double(ep.srate);
+    if nPts < 2 || ~(numel(this_times) == nPts && ...
+            all(isfinite(this_times)) && all(diff(this_times) > 0))
+        error('Dataset %d: times_ms must be a finite, strictly increasing vector of %d samples.', i, nPts);
+    end
+    if ~(isscalar(this_srate) && isfinite(this_srate) && this_srate > 0)
+        error('Dataset %d: srate must be one positive finite value.', i);
+    end
+    dt_this = median(diff(this_times));
+    if max(abs(diff(this_times) - dt_this)) > max(1e-9, 1e-6 * dt_this) || ...
+            abs(this_srate - 1000/dt_this) > max(1e-9, 1e-6 * this_srate)
+        error('Dataset %d: times_ms spacing and srate are not mutually consistent.', i);
+    end
+
     if isempty(times_ms)
-        times_ms = ep.times_ms(:);
-        srate    = double(ep.srate);
+        times_ms = this_times;
+        srate    = this_srate;
     else
-        if numel(times_ms) ~= numel(ep.times_ms) || any(times_ms ~= ep.times_ms(:))
-            warning('Time vector in dataset %d differs from the first accepted dataset. Proceeding anyway.', i);
+        if ~isequal(times_ms, this_times)
+            error('Dataset %d: time vector differs from the first accepted dataset.', i);
+        end
+        if abs(srate - this_srate) > max(1e-9, 1e-9 * srate)
+            error('Dataset %d: srate %.9g differs from the first accepted value %.9g Hz.', ...
+                i, this_srate, srate);
         end
     end
 
     for k = 1:numel(keepEpochs)
         eidx = keepEpochs(k);
 
-        thisCol = squeeze(ep.data(chIdx, :, eidx)).';
+        thisCol = reshape(ep.data(chIdx, :, eidx), [], 1);
+        if any(isinf(thisCol))
+            error('Dataset %d, epoch_index=%g: selected data contain Inf.', i, epIndex(eidx));
+        end
         if ~isa(thisCol, 'single') && ~isa(thisCol, 'double')
             thisCol = single(thisCol);
         end
@@ -276,6 +363,14 @@ if isempty(ts)
 end
 
 [n_points, n_series] = size(ts);
+
+series_keys_all = table(series_subj, series_sess, series_run, double(series_epix), ...
+    lower(strtrim(series_chan)), series_evt, ...
+    'VariableNames', {'subjectID','sessionID','runID','epoch_index','channel_key','eventtype'});
+[~, unique_key_rows] = unique(series_keys_all, 'rows', 'stable');
+if numel(unique_key_rows) ~= height(series_keys_all)
+    error('Assembled selected series contain duplicate full item keys.');
+end
 
 % Preserve a stable pre-MAT-exclusion candidate list (needed for NRFshifted warning)
 ts_raw              = ts;
@@ -319,6 +414,8 @@ shifts_for_NRFshifted    = [];
 n_series_used_for_average = NaN;
 
 n_dropped_missing_shift = 0;  % only relevant for NRFshifted
+nrf_missing_shift_keys = table();
+nrf_extra_selected_keys = table();
 
 if averagingApproach == "nrfshifted"
     assert(isfile(screened_nrf_csv), 'NRFshifted requested, but screened NRF CSV not found: %s', screened_nrf_csv);
@@ -349,7 +446,6 @@ if averagingApproach == "nrfshifted"
         col = idCols{c};
         Tnrf.(col) = strtrim(Tnrf.(col));
     end
-
     % Validate Exclude values: must be 0/1 only (or logical-equivalent)
     exv = double(Tnrf.Exclude);
     if any(~isfinite(exv))
@@ -371,7 +467,31 @@ if averagingApproach == "nrfshifted"
             char(channelFilter), char(eventtypeFilter), char(shiftNRFName));
     end
 
-    % ── Consistency warning: MAT vs CSV Exclude (NRFshifted + useExclusionFlags==true only)
+    % Validate the selected NRF route without allowing unrelated table rows
+    % to block a valid option-specific analysis.
+    required_string_cols = {'subjectID','sessionID','runID','eventtype','channel','NRFName'};
+    for c = 1:numel(required_string_cols)
+        col = required_string_cols{c};
+        if any(ismissing(Tnrf.(col))) || any(strlength(Tnrf.(col)) == 0)
+            error('Selected NRF rows contain a missing or blank %s value.', col);
+        end
+    end
+    if any(~isfinite(Tnrf.epoch_index)) || any(mod(Tnrf.epoch_index,1) ~= 0)
+        error('Selected NRF rows contain non-finite or non-integer epoch_index values.');
+    end
+    if any(isinf(Tnrf.shift_samples))
+        error('Selected NRF rows contain infinite shift_samples values.');
+    end
+
+    % Require exactly one selected-NRF row per full item key.
+    Tnrf.channel_key = lower(strtrim(Tnrf.channel));
+    nrf_key_vars = {'subjectID','sessionID','runID','epoch_index','channel_key','eventtype'};
+    [~, unique_nrf_rows] = unique(Tnrf(:, nrf_key_vars), 'rows', 'stable');
+    if numel(unique_nrf_rows) ~= height(Tnrf)
+        error('Selected NRF rows contain duplicate full item keys for NRFName=%s.', char(shiftNRFName));
+    end
+
+    % ── Consistency gate: MAT vs CSV Exclude (when exclusion flags are active)
     if useExclusionFlags
         % Candidate series table BEFORE MAT exclusion (stable list)
         cand = table( ...
@@ -409,7 +529,7 @@ if averagingApproach == "nrfshifted"
                 sampleKeys = keys(1:nShow);
                 sampleTxt = "  " + strjoin(sampleKeys, newline + "  ");
 
-                warning('Screening:PlotAverageTS:ExcludeMismatch', ...
+                error('Screening:PlotAverageTS:ExcludeMismatch', ...
                     'MAT vs CSV Exclude mismatch for %d joinable candidate series (showing up to %d):\n%s', ...
                     nMismatch, nShow, char(sampleTxt));
             end
@@ -437,10 +557,30 @@ if averagingApproach == "nrfshifted"
         );
     seriesTable.channel_key = lower(strtrim(seriesTable.channel));
 
+    [~, unique_series_rows] = unique(seriesTable(:, nrf_key_vars), ...
+        'rows', 'stable');
+    if numel(unique_series_rows) ~= height(seriesTable)
+        error('Post-exclusion series contain duplicate full item keys before the NRF join.');
+    end
+
+    % Record selected NRF rows that do not correspond to a current candidate.
+    candidate_keys = seriesTable(:, nrf_key_vars);
+    nrf_extra_selected_keys = setdiff(Tshift(:, nrf_key_vars), candidate_keys, 'rows', 'stable');
+    if ~isempty(nrf_extra_selected_keys)
+        fprintf('Selected NRF table contains %d extra keys outside the current candidate set; they are ignored.\n', ...
+            height(nrf_extra_selected_keys));
+    end
+
     joined = outerjoin(seriesTable, Tshift, ...
         'Keys', {'subjectID','sessionID','runID','epoch_index','channel_key','eventtype'}, ...
         'MergeKeys', true, ...
         'Type', 'left');
+
+    if height(joined) ~= height(seriesTable) || ...
+            numel(unique(joined.series_id)) ~= height(seriesTable) || ...
+            any(isnan(joined.series_id))
+        error('NRF shift join did not preserve exactly one row per admitted series.');
+    end
 
     % Ensure alignment to original series order
     joined = sortrows(joined, 'series_id');
@@ -450,10 +590,20 @@ if averagingApproach == "nrfshifted"
     mask_valid = ~isnan(shifts_all);
     n_dropped_missing_shift = sum(~mask_valid);
     n_remaining             = sum(mask_valid);
+    nrf_missing_shift_keys = seriesTable(~mask_valid(:), ...
+        {'subjectID','sessionID','runID','epoch_index','channel','eventtype'});
+    nrf_missing_shift_keys.NRFName = repmat(shiftNRFName, height(nrf_missing_shift_keys), 1);
 
     if n_dropped_missing_shift > 0
-        fprintf('Dropped %d series due to missing NRF shifts for %s (remaining: %d).\n', ...
-            n_dropped_missing_shift, char(shiftNRFName), n_remaining);
+        missing_key_text = nrf_missing_shift_keys.subjectID + "|" + ...
+            nrf_missing_shift_keys.sessionID + "|" + nrf_missing_shift_keys.runID + "|" + ...
+            string(nrf_missing_shift_keys.epoch_index) + "|" + ...
+            nrf_missing_shift_keys.channel + "|" + nrf_missing_shift_keys.eventtype;
+        warning('Screening:PlotAverageTS:MissingNRFShifts', ...
+            ['Dropped %d series with a missing NRF shift for %s (remaining: %d). ', ...
+             'Dropped keys:\n  %s'], ...
+            n_dropped_missing_shift, char(shiftNRFName), n_remaining, ...
+            char(strjoin(missing_key_text, newline + "  ")));
     end
     if n_remaining == 0
         error('All series have missing NRF shifts for %s; cannot compute NRF-shifted average.', char(shiftNRFName));
@@ -465,48 +615,105 @@ if averagingApproach == "nrfshifted"
     if any(~isfinite(shifts_for_NRFshifted)) || any(mod(shifts_for_NRFshifted, 1) ~= 0)
         error('Selected shifts for %s contain non-integer or non-finite values.', char(shiftNRFName));
     end
+    if any(abs(shifts_for_NRFshifted) >= n_points)
+        error('Selected shifts for %s include an absolute shift as large as the epoch.', char(shiftNRFName));
+    end
 end
 
 %% ────────────────────────── 6) Compute group-average EEG time series ──────────────────────────
 switch averagingApproach
     case "simple"
-        ts_avg = ts_average_simple(ts, ...
+        [ts_avg, averageInfo] = ts_average_simple(ts, ...
             'Aggregator',        aggregator, ...
             'SmoothingWindowMs', smoothingMs, ...
             'SRate',             srate);
         n_series_used_for_average = size(ts, 2);
         title_approach = 'simple';
+        averageInfo.series_keys_used = table(series_subj, series_sess, series_run, ...
+            double(series_epix), series_chan, series_evt, ...
+            'VariableNames', {'subjectID','sessionID','runID','epoch_index','channel','eventtype'});
 
     case "nrfshifted"
-        ts_avg = ts_average_NRFshifted(ts_for_NRFshifted, shifts_for_NRFshifted, ...
+        [ts_avg, averageInfo] = ts_average_NRFshifted(ts_for_NRFshifted, shifts_for_NRFshifted, ...
             'Aggregator',        aggregator, ...
             'SmoothingWindowMs', smoothingMs, ...
             'SRate',             srate);
         n_series_used_for_average = size(ts_for_NRFshifted, 2);
         title_approach = sprintf('NRF-shifted [%s]', char(shiftNRFName));
+        averageInfo.series_keys_used = seriesTable(mask_valid(:), ...
+            {'subjectID','sessionID','runID','epoch_index','channel','eventtype'});
+        averageInfo.series_keys_used.NRFName = ...
+            repmat(shiftNRFName, height(averageInfo.series_keys_used), 1);
+        averageInfo.series_keys_used.shift_samples = shifts_for_NRFshifted(:);
+        averageInfo.missing_shift_keys = nrf_missing_shift_keys;
+        nrf_extra_selected_keys.NRFName = ...
+            repmat(shiftNRFName, height(nrf_extra_selected_keys), 1);
+        averageInfo.extra_selected_nrf_keys = nrf_extra_selected_keys;
 
     case "woody"
-        [ts_avg, woody_shifts_samples] = ts_average_woody(ts, ...
+        [ts_avg, woody_shifts_samples, averageInfo] = ts_average_woody(ts, ...
             'TimesMs',           times_ms, ...
             'SRate',             srate, ...
             'ROI',               woodyROI, ...
             'MaxShiftMs',        woodyMaxShiftMs, ...
-            'Iterations',        woodyIterations, ...
+            'MaxIterations',     woodyMaxIterations, ...
             'Aggregator',        aggregator, ...
             'SmoothingWindowMs', smoothingMs);
         %#ok<NASGU>
         n_series_used_for_average = size(ts, 2);
-        title_approach = sprintf('woody (ROI %g–%g ms, ±%g ms, K=%d)', ...
-            woodyROI(1), woodyROI(2), woodyMaxShiftMs, woodyIterations);
+        title_approach = sprintf(['woody (realised ROI %g–%g ms, realised +/- %g ms/%d samples, ', ...
+            'fixed point at %d/%d iterations)'], ...
+            averageInfo.roi_realised_ms(1), averageInfo.roi_realised_ms(2), ...
+            averageInfo.max_shift_realised_ms, averageInfo.max_shift_samples, ...
+            averageInfo.iterations_executed, averageInfo.max_iterations_requested);
+        final_boundary = abs(woody_shifts_samples(:)) == averageInfo.max_shift_samples & ...
+            averageInfo.max_shift_samples > 0;
+        final_no_positive = averageInfo.no_positive_history(end, :).';
+        final_r_max = averageInfo.rmax_history(end, :).';
+        final_source_window_lag = -woody_shifts_samples(:);
+        final_iteration_changed = double(averageInfo.final_iteration_changed_by_item(:));
+        averageInfo.series_keys_used = table(series_subj, series_sess, series_run, ...
+            double(series_epix), series_chan, series_evt, woody_shifts_samples(:), ...
+            final_source_window_lag, final_r_max, final_no_positive, final_boundary, ...
+            final_iteration_changed, ...
+            'VariableNames', {'subjectID','sessionID','runID','epoch_index','channel','eventtype', ...
+            'applied_shift_samples','source_window_lag_samples','maximum_correlation', ...
+            'no_positive_correlation','boundary_hit','changed_on_final_iteration'});
 
     otherwise
         error('Unknown averagingApproach: %s. Allowed: "simple", "NRFshifted", or "woody".', averagingApproach);
 end
 
+averageInfo.approach            = char(averagingApproach);
+averageInfo.channel             = char(channelFilter);
+averageInfo.eventtype           = char(eventtypeFilter);
+averageInfo.use_exclusion_flags = useExclusionFlags;
+averageInfo.n_candidates        = n_candidates_total;
+averageInfo.n_excluded_by_flags = n_excluded_by_flags;
+averageInfo.n_admitted_series   = n_series_used_for_average;
+
+if averageInfo.smoothing_window_samples == 0
+    smoothing_label = 'off';
+elseif abs(averageInfo.smoothing_requested_ms - averageInfo.smoothing_window_effective_ms) < 1e-12
+    smoothing_label = sprintf('%g ms (%d samples)', ...
+        averageInfo.smoothing_window_effective_ms, averageInfo.smoothing_window_samples);
+else
+    smoothing_label = sprintf('%g ms requested; %g ms realised (%d samples)', ...
+        averageInfo.smoothing_requested_ms, averageInfo.smoothing_window_effective_ms, ...
+        averageInfo.smoothing_window_samples);
+end
+
 %% ────────────────────────── 6B) Concise Command Window reporting (always) ──────────────────────────
 fprintf('\nSummary:\n');
 fprintf('  channel=%s | eventtype=%s\n', char(channelFilter), char(eventtypeFilter));
-fprintf('  approach=%s | aggregator=%s | smoothing=%gms\n', char(title_approach), char(aggregator), smoothingMs);
+fprintf('  approach=%s | aggregator=%s | smoothing=%s\n', ...
+    char(title_approach), char(aggregator), smoothing_label);
+if averageInfo.smoothing_window_samples > 0
+    fprintf('  realised_smoothing=%d samples (%.9g ms)\n', ...
+        averageInfo.smoothing_window_samples, averageInfo.smoothing_window_effective_ms);
+else
+    fprintf('  realised_smoothing=off\n');
+end
 
 if useExclusionFlags
     fprintf('  useExclusionFlags=true | excluded_by_flags=%d | candidates=%d | after_flags=%d\n', ...
@@ -521,6 +728,25 @@ if averagingApproach == "nrfshifted"
         char(shiftNRFName), n_dropped_missing_shift, n_series_used_for_average);
 else
     fprintf('  used_for_average=%d\n', n_series_used_for_average);
+end
+fprintf('  contributors_per_time_before_smoothing: min=%d | max=%d | full-support samples=%d/%d\n', ...
+    min(averageInfo.n_contributors_by_time_pre_smoothing), ...
+    max(averageInfo.n_contributors_by_time_pre_smoothing), ...
+    sum(averageInfo.common_support_mask_pre_smoothing), ...
+    numel(averageInfo.common_support_mask_pre_smoothing));
+if averagingApproach == "woody"
+    fprintf(['  woody requested ROI=[%.9g %.9g] ms | requested max shift=+/-%.9g ms | ', ...
+        'realised ROI=[%.9g %.9g] ms | realised max shift=+/-%.9g ms (%d samples) ', ...
+        '| convergence=%s (%s) at %d/%d iterations | final boundary hits=%d ', ...
+        '| final no-positive=%d | final iteration stable=%s\n'], ...
+        averageInfo.roi_requested_ms(1), averageInfo.roi_requested_ms(2), ...
+        averageInfo.max_shift_requested_ms, ...
+        averageInfo.roi_realised_ms(1), averageInfo.roi_realised_ms(2), ...
+        averageInfo.max_shift_realised_ms, averageInfo.max_shift_samples, ...
+        char(string(averageInfo.converged)), averageInfo.termination_reason, ...
+        averageInfo.iterations_executed, averageInfo.max_iterations_requested, ...
+        averageInfo.final_boundary_hit_count, averageInfo.final_no_positive_count, ...
+        char(string(averageInfo.final_iteration_stable)));
 end
 
 %% ────────────────────────── 7) Compute NRF overlay time series (optional) ──────────────────────────
@@ -571,7 +797,7 @@ ts_all = table(vars{:}, 'VariableNames', varNames);
 
 %% ────────────────────────── 9) Plot EEG average ± NRF overlays ──────────────────────────
 if plotNRFOverlays
-    figure('Color','w'); hold on;
+    Figure = figure('Color','w'); hold on;
 
     h_eeg = plot(ts_all.time_ms, ts_all.EEG_avg, 'LineWidth', 2);
 
@@ -606,8 +832,8 @@ if plotNRFOverlays
     xlabel('Time (ms)', 'FontSize', 15);
     ylabel('Amplitude (\muV)', 'FontSize', 15);
 
-    title(sprintf('TS | approach=%s | aggregator=%s | smoothing=%gms | n=%d | channel=%s | eventtype=%s', ...
-        char(title_approach), char(aggregator), smoothingMs, n_series_used_for_average, char(channelFilter), char(eventtypeFilter)), ...
+    title(sprintf('TS | approach=%s | aggregator=%s | smoothing=%s | admitted n=%d | channel=%s | eventtype=%s', ...
+        char(title_approach), char(aggregator), smoothing_label, n_series_used_for_average, char(channelFilter), char(eventtypeFilter)), ...
         'FontSize', 12, 'Interpreter', 'none');
 
     if isempty(h_overlays)

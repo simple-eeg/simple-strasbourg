@@ -15,7 +15,7 @@
 %      and always plot the final average as PSD (dB/Hz).
 %   7) Print concise, informative summary information to the Command Window.
 %
-% Inputs (screened; must already exist from Step 5.3 apply-decisions)
+% Inputs (screened; must already exist from Step 6.3 apply-decisions)
 %   <baseDir>/data/summary/screening/pooled_screened_eeg_epochs.mat
 %     - variable: epochs_pooled (struct array, one element per dataset)
 %     - required field on each element: Exclude [nCh x nEp] logical
@@ -73,10 +73,34 @@ fmax_hz = 251;
 figureTitleFontSize = 12;
 axisFontSize        = 15;
 
+% Fixed multitaper settings
+timeBandwidthProduct = 4;
+nfft                 = 1024;
+
 %% ────────────────────────── 3) Validate user-config ──────────────────────────
-epochWindow     = lower(string(epochWindow));
-aggregator      = lower(string(aggregator));
-aggregateDomain = lower(string(aggregateDomain));
+channelFilter   = string(channelFilter);
+eventtypeFilter = string(eventtypeFilter);
+epochWindow     = string(epochWindow);
+aggregator      = string(aggregator);
+aggregateDomain = string(aggregateDomain);
+
+if ~isscalar(channelFilter) || ismissing(channelFilter) || strlength(strtrim(channelFilter)) == 0
+    error('Config error: channelFilter must be one nonblank text scalar.');
+end
+if ~isscalar(eventtypeFilter) || ismissing(eventtypeFilter) || strlength(strtrim(eventtypeFilter)) == 0
+    error('Config error: eventtypeFilter must be one nonblank text scalar.');
+end
+if ~isscalar(epochWindow) || ismissing(epochWindow) || ...
+        ~isscalar(aggregator) || ismissing(aggregator) || ...
+        ~isscalar(aggregateDomain) || ismissing(aggregateDomain)
+    error('Config error: epochWindow, aggregator, and aggregateDomain must each be one text scalar.');
+end
+
+channelFilter   = strtrim(channelFilter);
+eventtypeFilter = strtrim(eventtypeFilter);
+epochWindow     = lower(strtrim(epochWindow));
+aggregator      = lower(strtrim(aggregator));
+aggregateDomain = lower(strtrim(aggregateDomain));
 
 validWindows = ["post-stim","baseline","full"];
 if ~ismember(epochWindow, validWindows)
@@ -93,8 +117,31 @@ if ~ismember(aggregateDomain, validDomains)
     error('Config error: aggregateDomain must be one of: %s', strjoin(cellstr(validDomains), ', '));
 end
 
-if ~isscalar(fmin_hz) || ~isscalar(fmax_hz) || ~isfinite(fmin_hz) || ~isfinite(fmax_hz) || fmax_hz <= fmin_hz
+if ~isnumeric(fmin_hz) || ~isreal(fmin_hz) || ~isscalar(fmin_hz) || ...
+        ~isnumeric(fmax_hz) || ~isreal(fmax_hz) || ~isscalar(fmax_hz) || ...
+        ~isfinite(fmin_hz) || ~isfinite(fmax_hz) || fmax_hz <= fmin_hz
     error('Config error: fmin_hz and fmax_hz must be finite scalars with fmin_hz < fmax_hz.');
+end
+
+if ~islogical(useExclusionFlags) || ~isscalar(useExclusionFlags)
+    error('Config error: useExclusionFlags must be a logical scalar.');
+end
+
+if ~isnumeric(timeBandwidthProduct) || ~isreal(timeBandwidthProduct) || ...
+        ~isscalar(timeBandwidthProduct) || ~isfinite(timeBandwidthProduct) || timeBandwidthProduct < 1.25
+    error(['Config error: timeBandwidthProduct must be one finite real value of at least 1.25 ', ...
+        'for pmtm''s default dropped-last-taper route.']);
+end
+if ~isnumeric(nfft) || ~isreal(nfft) || ~isscalar(nfft) || ...
+        ~isfinite(nfft) || nfft < 2 || mod(nfft, 1) ~= 0
+    error('Config error: nfft must be an integer scalar of at least 2.');
+end
+
+if ~isnumeric(figureTitleFontSize) || ~isreal(figureTitleFontSize) || ...
+        ~isscalar(figureTitleFontSize) || ~isfinite(figureTitleFontSize) || figureTitleFontSize <= 0 || ...
+        ~isnumeric(axisFontSize) || ~isreal(axisFontSize) || ...
+        ~isscalar(axisFontSize) || ~isfinite(axisFontSize) || axisFontSize <= 0
+    error('Config error: figureTitleFontSize and axisFontSize must be positive finite numeric scalars.');
 end
 
 %% ────────────────────────── 4) Load screened epochs and assemble series ──────────────────────────
@@ -111,7 +158,7 @@ end
 % Hard requirement: Exclude must be present (even if ignoring it)
 if ~isfield(epochs_pooled, 'Exclude')
     error(['Expected field "Exclude" on epochs_pooled (screened MAT). ', ...
-        'This indicates Step 5.3 (apply-decisions) has not been run, or the wrong file was used.']);
+        'This indicates Step 6.3 (apply-decisions) has not been run, or the wrong file was used.']);
 end
 
 % Collect time series and metadata (one column per epoch-series)
@@ -137,27 +184,91 @@ for i = 1:numel(epochs_pooled)
         end
     end
 
+    if ~isnumeric(ep.data) || ~isreal(ep.data) || isempty(ep.data) || ndims(ep.data) > 3
+        error('Dataset %d: ep.data must be a non-empty real numeric [nCh x nPts x nEp] array.', i);
+    end
+    if any(~isfinite(ep.data(:)))
+        error('Dataset %d: ep.data contains a nonfinite value.', i);
+    end
     if ~islogical(ep.Exclude)
         error('Dataset %d: Exclude must be logical.', i);
     end
-    if ndims(ep.data) ~= 3
-        error('Dataset %d: expected ep.data as [nCh x nPts x nEp].', i);
-    end
     nCh = size(ep.data, 1);
+    nPts = size(ep.data, 2);
     nEp = size(ep.data, 3);
     if ~isequal(size(ep.Exclude), [nCh, nEp])
         error('Dataset %d: Exclude has wrong shape. Expected [%d x %d].', i, nCh, nEp);
     end
 
-    subj = string(strtrim(ep.subjectID));
-    sess = string(strtrim(ep.sessionID));
-    run  = string(strtrim(ep.runID));
+    subj = strtrim(string(ep.subjectID));
+    sess = strtrim(string(ep.sessionID));
+    run  = strtrim(string(ep.runID));
+    if ~isscalar(subj) || ismissing(subj) || strlength(subj) == 0 || ...
+            ~isscalar(sess) || ismissing(sess) || strlength(sess) == 0 || ...
+            ~isscalar(run) || ismissing(run) || strlength(run) == 0
+        error('Dataset %d: subjectID, sessionID, and runID must each be one nonblank text value.', i);
+    end
 
-    chLabels = string(ep.channels(:));
-    evtTypes = string(ep.eventtype(:));
-    epIndex  = double(ep.epoch_index(:));
+    if ischar(ep.channels)
+        chLabels = string(cellstr(ep.channels));
+    elseif isstring(ep.channels) || iscellstr(ep.channels)
+        chLabels = string(ep.channels(:));
+    else
+        error('Dataset %d: channels must be a text vector.', i);
+    end
+    if ischar(ep.eventtype)
+        evtTypes = string(cellstr(ep.eventtype));
+    elseif isstring(ep.eventtype) || iscellstr(ep.eventtype)
+        evtTypes = string(ep.eventtype(:));
+    else
+        error('Dataset %d: eventtype must be a text vector.', i);
+    end
+    chLabels = strtrim(chLabels(:));
+    evtTypes = strtrim(evtTypes(:));
 
-    chIdx = find(lower(strtrim(chLabels)) == lower(strtrim(channelFilter)), 1, 'first');
+    if numel(chLabels) ~= nCh || any(ismissing(chLabels)) || any(strlength(chLabels) == 0)
+        error('Dataset %d: channels must contain one nonblank label for each of %d data channels.', i, nCh);
+    end
+    if numel(unique(lower(chLabels))) ~= nCh
+        error('Dataset %d: channel labels must be unique after case-insensitive trimming.', i);
+    end
+    if numel(evtTypes) ~= nEp || any(ismissing(evtTypes)) || any(strlength(evtTypes) == 0)
+        error('Dataset %d: eventtype must contain one nonblank label for each of %d epochs.', i, nEp);
+    end
+
+    if ~isnumeric(ep.epoch_index) || ~isreal(ep.epoch_index)
+        error('Dataset %d: epoch_index must be a real numeric vector.', i);
+    end
+    epIndex = double(ep.epoch_index(:));
+    if numel(epIndex) ~= nEp || any(~isfinite(epIndex)) || any(mod(epIndex, 1) ~= 0)
+        error('Dataset %d: epoch_index must contain one finite integer for each of %d epochs.', i, nEp);
+    end
+    if numel(unique(epIndex)) ~= nEp
+        error('Dataset %d: epoch_index values must be unique.', i);
+    end
+
+    if ~isnumeric(ep.times_ms) || ~isreal(ep.times_ms)
+        error('Dataset %d: times_ms must be a real numeric vector.', i);
+    end
+    thisTimes = double(ep.times_ms(:));
+    if numel(thisTimes) ~= nPts || any(~isfinite(thisTimes)) || any(diff(thisTimes) <= 0)
+        error('Dataset %d: times_ms must have %d finite, strictly increasing samples.', i, nPts);
+    end
+    if ~isnumeric(ep.srate) || ~isreal(ep.srate) || ~isscalar(ep.srate) || ...
+            ~isfinite(ep.srate) || ep.srate <= 0
+        error('Dataset %d: srate must be one positive finite real value.', i);
+    end
+    expectedStepMs = 1000 / double(ep.srate);
+    stepToleranceMs = max(1e-9, 1e-6 * expectedStepMs);
+    if nPts < 2 || any(abs(diff(thisTimes) - expectedStepMs) > stepToleranceMs)
+        error('Dataset %d: times_ms spacing is not coherent with srate=%.12g Hz.', i, double(ep.srate));
+    end
+
+    chMatches = find(lower(chLabels) == lower(channelFilter));
+    if numel(chMatches) > 1
+        error('Dataset %d: channelFilter="%s" matches more than one channel.', i, char(channelFilter));
+    end
+    chIdx = chMatches;
     if isempty(chIdx)
         continue;
     end
@@ -169,10 +280,10 @@ for i = 1:numel(epochs_pooled)
 
     % Enforce identical time base and sampling rate across all CONTRIBUTING datasets (PSD comparability)
     if isempty(times_ms)
-        times_ms = ep.times_ms(:);
+        times_ms = thisTimes;
         srate    = double(ep.srate);
     else
-        if numel(times_ms) ~= numel(ep.times_ms(:)) || any(times_ms ~= ep.times_ms(:))
+        if numel(times_ms) ~= numel(thisTimes) || any(times_ms ~= thisTimes)
             error('Time vector mismatch: dataset %d differs from the first dataset (PSD requires consistent time base).', i);
         end
         if double(ep.srate) ~= srate
@@ -184,7 +295,7 @@ for i = 1:numel(epochs_pooled)
     for k = 1:numel(keepEpochs)
         eidx = keepEpochs(k);
 
-        thisCol = squeeze(ep.data(chIdx, :, eidx)).';
+        thisCol = reshape(ep.data(chIdx, :, eidx), [], 1);
         if ~isa(thisCol, 'single') && ~isa(thisCol, 'double')
             thisCol = single(thisCol);
         end
@@ -211,6 +322,14 @@ if isempty(ts)
 end
 
 [n_points, n_series] = size(ts);
+
+if n_points ~= numel(times_ms)
+    error('Internal assembly error: collected data length does not match times_ms length.');
+end
+seriesIdentity = [series_subj, series_sess, series_run, string(series_epix)];
+if size(unique(seriesIdentity, 'rows'), 1) ~= n_series
+    error('Selected items are not unique by subject, session, run, channel, eventtype, and epoch_index.');
+end
 
 n_candidates_total = n_series;
 n_flagged_mat      = sum(series_mat_excl);
@@ -254,6 +373,11 @@ nWin = sum(winMask);
 if nWin == 0
     error('epochWindow="%s" yields zero samples (times_ms has no samples in that region).', char(epochWindow));
 end
+if timeBandwidthProduct >= nWin / 2
+    error(['epochWindow="%s" yields %d samples, but pmtm requires the time-bandwidth product ', ...
+        '(%.12g) to be less than half the signal length.'], ...
+        char(epochWindow), nWin, timeBandwidthProduct);
+end
 
 ts_win = ts(winMask, :);
 
@@ -264,7 +388,18 @@ Fref = [];   % [nFreq x 1]
 for j = 1:size(ts_win, 2)
     y = double(ts_win(:, j));
 
-    [Pxx, F] = pmtm(double(y), 4, 1024, srate, 'onesided');
+    [Pxx, F] = pmtm(y, timeBandwidthProduct, nfft, srate, 'onesided');
+    if ~isnumeric(Pxx) || ~isreal(Pxx) || any(~isfinite(Pxx(:))) || any(Pxx(:) < 0)
+        error('pmtm returned invalid PSD values for series %d.', j);
+    end
+    if ~isnumeric(F) || ~isreal(F) || any(~isfinite(F(:))) || ...
+            any(F(:) < 0) || any(F(:) > srate / 2 + max(eps(srate), 1e-12)) || ...
+            any(diff(double(F(:))) <= 0)
+        error('pmtm returned an invalid one-sided frequency grid for series %d.', j);
+    end
+    if numel(Pxx) ~= numel(F)
+        error('pmtm returned mismatched PSD and frequency dimensions for series %d.', j);
+    end
     Pxx = max(Pxx, eps);
 
     if isempty(Fref)
@@ -272,11 +407,17 @@ for j = 1:size(ts_win, 2)
         Pmat = zeros(numel(Fref), size(ts_win, 2));
     else
         if numel(F) ~= numel(Fref) || any(double(F(:)) ~= Fref)
-            error('pmtm frequency grid mismatch across epochs. This should not happen with fixed Fs=%.3f, NW=4, and NFFT=1024.', srate);
+            error(['pmtm frequency grid mismatch across epochs. This should not happen with fixed ', ...
+                'Fs=%.3f, time-bandwidth product=%g, and NFFT=%d.'], ...
+                srate, timeBandwidthProduct, nfft);
         end
     end
 
     Pmat(:, j) = double(Pxx(:));
+end
+
+if isempty(Pmat) || ~isreal(Pmat) || any(~isfinite(Pmat(:)))
+    error('Computed per-series PSD matrix is empty, complex, or nonfinite.');
 end
 
 %% ────────────────────────── 6) Aggregate PSDs and convert to dB for plotting ──────────────────────────
@@ -311,6 +452,10 @@ switch aggregateDomain
         error('Internal error: unexpected aggregateDomain: %s', aggregateDomain);
 end
 
+if ~isreal(PSD_avg_db) || any(~isfinite(PSD_avg_db(:))) || numel(PSD_avg_db) ~= numel(Fref)
+    error('Aggregated PSD result is nonfinite or has unexpected dimensions.');
+end
+
 %% ────────────────────────── 6B) Assemble output table ──────────────────────────
 psd_all = table(Fref, PSD_avg_db, 'VariableNames', {'freq_hz','PSD_avg_db'});
 
@@ -318,6 +463,7 @@ psd_all = table(Fref, PSD_avg_db, 'VariableNames', {'freq_hz','PSD_avg_db'});
 fprintf('\nSummary:\n');
 fprintf('  channel=%s | eventtype=%s\n', char(channelFilter), char(eventtypeFilter));
 fprintf('  epochWindow=%s | Fs=%.3f Hz | nWinSamples=%d\n', char(epochWindow), srate, nWin);
+fprintf('  pmtm: timeBandwidthProduct=%g | nfft=%d | one-sided\n', timeBandwidthProduct, nfft);
 fprintf('  aggregator=%s | aggregateDomain=%s\n', char(aggregator), char(aggregateDomain));
 
 if useExclusionFlags

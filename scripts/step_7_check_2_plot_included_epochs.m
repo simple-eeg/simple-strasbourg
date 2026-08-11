@@ -1,6 +1,6 @@
 %% step_7_check_2_plot_included_epochs.m
 % Purpose
-%   Plot individual epoch–channel items from screened pooled outputs (Step 5.3),
+%   Plot individual epoch–channel items from screened pooled outputs (Step 6.3),
 %   paging through as many 3×3 subplot figures as needed. Figures are displayed only
 %   (not saved). Excluded epoch–channel items are omitted.
 %
@@ -26,6 +26,7 @@
 %        PLOT.seriesNames: [1 x n_series] (EEG + NRFName list)
 %        PLOT.epochMeta  : table (one row per item)
 %        PLOT.plotTitle  : [n_items x 1] subplot titles
+%        PLOT.selection  : requested route and missing-channel identities
 %   3) Sort items by: subjectID, sessionID, runID, epoch_index (numeric), channel
 %   4) Clear everything except PLOT.
 %   5) Set plot styling variables (user-editable) then plot (3×3 paging).
@@ -36,7 +37,9 @@
 %   - Exclusion is enforced per epoch–channel item:
 %       • MAT: excluded if epochs_pooled(d).Exclude(ch,e) == true
 %       • NRF CSV: included rows are Exclude == 0
+%     The MAT and every requested NRF row must agree exactly before plotting.
 %   - NRF overlays use stored shift_samples + fglsCoef + projectionTimes_ms.
+%   - Every requested overlay must be present exactly once; missing rows error.
 %   - If an NRF overlay window is out of bounds, the script errors and stops.
 %   - If duplicate NRF rows exist for a given item+NRFName, the script errors and stops.
 %   - No legends.
@@ -57,6 +60,12 @@ if exist(functionsFolder, 'dir')
 end
 
 assert(isfile(epochsMatPath), 'Missing file: %s', epochsMatPath);
+developerRoot = fileparts(baseDir);
+assert(is_local_child(baseDir, pooledDir) && ...
+    is_local_child(baseDir, epochsMatPath) && ...
+    is_local_child(baseDir, nrfCsvPath) && ...
+    is_local_child(baseDir, functionsFolder), ...
+    'Strasbourg inputs, functions, and prospective log/output paths must remain local.');
 
 % Launch EEGLAB interactively to ensure SIMPLE plugin paths (incl. NRFs) are on the MATLAB path.
 % Do NOT use eeglab nogui here.
@@ -78,58 +87,138 @@ nrfNamesRequested = { ...
     'noxious_preterm_NRF_500Hz' ...
     };
 
+assert(isstring(filterMode) && isscalar(filterMode) && ...
+    (filterMode == "eventtype" || filterMode == "eventannotation"), ...
+    'filterMode must be "eventtype" or "eventannotation".');
+filterValue = string(filterValue);
+channelRequested = string(channelRequested);
+assert(isscalar(filterValue) && ~ismissing(filterValue) && strlength(filterValue) > 0, ...
+    'filterValue must be a nonblank string scalar.');
+assert(isscalar(channelRequested) && ~ismissing(channelRequested) && ...
+    strlength(strtrim(channelRequested)) > 0, ...
+    'channelRequested must be a nonblank string scalar.');
+assert(islogical(overlayNRF) && isscalar(overlayNRF), ...
+    'overlayNRF must be a logical scalar.');
 
-if ~overlayNRF
+if overlayNRF
+    requestedNames = string(nrfNamesRequested(:));
+    assert(~isempty(requestedNames) && numel(requestedNames) <= 3 && ...
+        all(~ismissing(requestedNames)) && all(strlength(strtrim(requestedNames)) > 0), ...
+        'nrfNamesRequested must contain one to three nonblank names when overlayNRF is true.');
+    requestedNames = strtrim(requestedNames);
+    assert(numel(unique(requestedNames)) == numel(requestedNames), ...
+        'nrfNamesRequested must not contain duplicate names.');
+    nrfNamesRequested = cellstr(requestedNames);
+else
+    requestedNames = strings(0, 1);
     nrfNamesRequested = {};
 end
-if overlayNRF
-    assert(~isempty(nrfNamesRequested), 'overlayNRF is true, but nrfNamesRequested is empty.');
-end
 
-assert(filterMode == "eventtype" || filterMode == "eventannotation", ...
-    'filterMode must be "eventtype" or "eventannotation".');
+targetCh = upper(strtrim(channelRequested));
 
 %% 3) Load screened pooled epochs
 S = load(epochsMatPath);
 assert(isfield(S, 'epochs_pooled'), 'Expected variable "epochs_pooled" in %s', epochsMatPath);
 epochs_pooled = S.epochs_pooled;
-assert(~isempty(epochs_pooled), 'epochs_pooled is empty in %s', epochsMatPath);
+assert(isstruct(epochs_pooled) && ~isempty(epochs_pooled), ...
+    'epochs_pooled must be a non-empty struct array in %s', epochsMatPath);
 
-% Fail-fast: ensure screened Exclude masks are present and consistent.
+candidateRows = table('Size', [0 11], ...
+    'VariableTypes', {'double','double','double','string','string','string','double','string','string','string','logical'}, ...
+    'VariableNames', {'dataset_idx','channel_pos','epoch_pos','subjectID','sessionID','runID', ...
+    'epoch_index','channel','eventtype','eventannotation','mat_exclude'});
+missingRequestedChannel = strings(0, 1);
+
+% Fail-fast: validate every pooled dataset before constructing any plot.
 for d = 1:numel(epochs_pooled)
     D = epochs_pooled(d);
 
-    % Require Exclude
-    assert(isfield(D, 'Exclude'), ...
-        'Screened epochs MAT is missing field "Exclude" for dataset index %d. Did you run apply decisions?', d);
-
-    Ex = D.Exclude;
-    assert(islogical(Ex), ...
-        'Exclude must be logical for dataset index %d (found %s).', d, class(Ex));
-    assert(ismatrix(Ex), ...
-        'Exclude must be a 2-D matrix for dataset index %d.', d);
-
-    % Require enough fields to validate Exclude dimensions
-    assert(isfield(D, 'channels') && ~isempty(D.channels), ...
-        'Cannot validate Exclude dimensions: missing/empty channels for dataset index %d.', d);
-    assert(isfield(D, 'epoch_index') && ~isempty(D.epoch_index), ...
-        'Cannot validate Exclude dimensions: missing/empty epoch_index for dataset index %d.', d);
-
-    nCh = numel(D.channels);
-    nEp = numel(D.epoch_index);
-
-    assert(size(Ex, 1) == nCh && size(Ex, 2) == nEp, ...
-        'Exclude size mismatch for dataset index %d: expected [%d x %d], found [%d x %d].', ...
-        d, nCh, nEp, size(Ex,1), size(Ex,2));
-
-    % Optional cross-check against data if present
-    if isfield(D, 'data') && ~isempty(D.data)
-        sz = size(D.data);
-        assert(numel(sz) == 3, 'data must be 3-D for dataset index %d.', d);
-        assert(sz(1) == nCh, 'data/channels mismatch for dataset index %d.', d);
-        assert(sz(3) == nEp, 'data/epoch_index mismatch for dataset index %d.', d);
+    requiredFields = {'data','times_ms','channels','epoch_index','eventtype','eventannotation', ...
+        'subjectID','sessionID','runID','srate','Exclude'};
+    for fieldIndex = 1:numel(requiredFields)
+        assert(isfield(D, requiredFields{fieldIndex}), ...
+            'Dataset %d is missing required field: %s', d, requiredFields{fieldIndex});
     end
+
+    assert(isnumeric(D.data) && isreal(D.data) && ndims(D.data) <= 3, ...
+        'Dataset %d: data must be a real numeric [nCh x nPoints x nEpochs] array.', d);
+    assert(all(isfinite(D.data(:))), 'Dataset %d: data contain NaN or Inf.', d);
+    nCh = size(D.data, 1);
+    nPoints = size(D.data, 2);
+    nEp = size(D.data, 3);
+    assert(nCh >= 1 && nPoints >= 2 && nEp >= 1, ...
+        'Dataset %d: data dimensions are not usable.', d);
+
+    channelLabels = normalise_text_vector(D.channels, nCh, 'channels', d, false);
+    assert(numel(unique(upper(channelLabels))) == nCh, ...
+        'Dataset %d: channel labels must be unique case-insensitively.', d);
+    eventTypes = normalise_text_vector(D.eventtype, nEp, 'eventtype', d, true);
+    eventAnnotations = normalise_text_vector(D.eventannotation, nEp, 'eventannotation', d, true);
+
+    assert(isnumeric(D.epoch_index) && isreal(D.epoch_index) && numel(D.epoch_index) == nEp && ...
+        all(isfinite(D.epoch_index(:))) && all(D.epoch_index(:) == fix(D.epoch_index(:))) && ...
+        numel(unique(double(D.epoch_index(:)))) == nEp, ...
+        'Dataset %d: epoch_index must contain one unique finite integer per epoch.', d);
+    epochIndices = double(D.epoch_index(:));
+
+    timesHere = double(D.times_ms(:));
+    assert(isnumeric(D.times_ms) && isreal(D.times_ms) && numel(timesHere) == nPoints && ...
+        all(isfinite(timesHere)) && all(diff(timesHere) > 0), ...
+        'Dataset %d: times_ms must be finite, strictly increasing, and match data.', d);
+    assert(isnumeric(D.srate) && isreal(D.srate) && isscalar(D.srate) && ...
+        isfinite(D.srate) && D.srate > 0, ...
+        'Dataset %d: srate must be a positive finite numeric scalar.', d);
+    expectedDt = 1000 / double(D.srate);
+    dtTolerance = max(1e-9, abs(expectedDt) * 1e-6);
+    assert(all(abs(diff(timesHere) - expectedDt) <= dtTolerance), ...
+        'Dataset %d: times_ms spacing is inconsistent with srate.', d);
+
+    assert(islogical(D.Exclude) && isequal(size(D.Exclude), [nCh, nEp]), ...
+        'Dataset %d: Exclude must be logical with exact size [%d x %d].', d, nCh, nEp);
+
+    subjectID = normalise_text_scalar(D.subjectID, 'subjectID', d);
+    sessionID = normalise_text_scalar(D.sessionID, 'sessionID', d);
+    runID = normalise_text_scalar(D.runID, 'runID', d);
+
+    channelMatches = find(upper(channelLabels) == targetCh);
+    if isempty(channelMatches)
+        missingRequestedChannel(end + 1, 1) = subjectID + "|" + sessionID + "|" + runID; %#ok<SAGROW>
+        continue
+    end
+    assert(numel(channelMatches) == 1, ...
+        'Dataset %d: requested channel has more than one case-insensitive match.', d);
+    channelPosition = channelMatches(1);
+
+    if filterMode == "eventtype"
+        eventMask = eventTypes == filterValue;
+    else
+        eventMask = eventAnnotations == filterValue;
+    end
+    selectedEpochs = find(eventMask);
+    if isempty(selectedEpochs)
+        continue
+    end
+
+    nSelected = numel(selectedEpochs);
+    selectedRows = table( ...
+        repmat(d, nSelected, 1), repmat(channelPosition, nSelected, 1), selectedEpochs(:), ...
+        repmat(subjectID, nSelected, 1), repmat(sessionID, nSelected, 1), repmat(runID, nSelected, 1), ...
+        epochIndices(selectedEpochs), repmat(channelLabels(channelPosition), nSelected, 1), ...
+        eventTypes(selectedEpochs), eventAnnotations(selectedEpochs), ...
+        reshape(D.Exclude(channelPosition, selectedEpochs), [], 1), ...
+        'VariableNames', candidateRows.Properties.VariableNames);
+    candidateRows = [candidateRows; selectedRows]; %#ok<AGROW>
 end
+
+assert(~isempty(candidateRows), ...
+    'No items matched: filterMode=%s, filterValue=%s, channel=%s', ...
+    filterMode, filterValue, channelRequested);
+candidateKeys = candidateRows(:, {'subjectID','sessionID','runID','epoch_index','channel'});
+candidateKeys.channel = upper(candidateKeys.channel);
+assert(height(unique(candidateKeys, 'rows')) == height(candidateKeys), ...
+    'The selected MAT items do not have unique subject/session/run/epoch/channel keys.');
+
+fprintf('Datasets without requested channel %s: %d\n', channelRequested, numel(missingRequestedChannel));
 
 %% 4) Load screened pooled NRF CSV (only if overlayNRF)
 % Read as strings for ID columns to preserve leading zeros (sessionID/runID).
@@ -138,12 +227,12 @@ if overlayNRF
 
     optsNRF = detectImportOptions(nrfCsvPath, 'PreserveVariableNames', true, 'TextType', 'string');
     idCols = {'subjectID','sessionID','runID','channel','eventtype','eventannotation','NRFName'};
-    idCols = intersect(idCols, optsNRF.VariableNames, 'stable');
-    if ~isempty(idCols)
-        optsNRF = setvartype(optsNRF, idCols, 'string');
-    end
+    assert(all(ismember(idCols, optsNRF.VariableNames)), ...
+        'NRF CSV is missing one or more required identity/event columns.');
+    optsNRF = setvartype(optsNRF, idCols, 'string');
 
     Tnrf_all = readtable(nrfCsvPath, optsNRF);
+    assert(~isempty(Tnrf_all), 'NRF CSV is empty: %s', nrfCsvPath);
 
     % Normalise key string fields (trim; missing -> "")
     for k = 1:numel(idCols)
@@ -158,28 +247,80 @@ if overlayNRF
         c = needNum{k};
         assert(any(strcmp(Tnrf_all.Properties.VariableNames, c)), ...
             'NRF CSV is missing required numeric column: %s', c);
+        assert((isnumeric(Tnrf_all.(c)) || islogical(Tnrf_all.(c))) && ...
+            isreal(Tnrf_all.(c)) && isvector(Tnrf_all.(c)) && ...
+            numel(Tnrf_all.(c)) == height(Tnrf_all), ...
+            'NRF CSV column %s must be a real numeric vector.', c);
         Tnrf_all.(c) = double(Tnrf_all.(c));
     end
 
-    % Require Exclude flag and keep included rows only (Exclude == 0)
+    % Require a finite binary Exclude flag before checking MAT/CSV agreement.
     assert(any(strcmp(Tnrf_all.Properties.VariableNames, 'Exclude')), ...
         'Screened NRF CSV is missing required column: Exclude');
+    assert((isnumeric(Tnrf_all.Exclude) || islogical(Tnrf_all.Exclude)) && ...
+        isreal(Tnrf_all.Exclude) && isvector(Tnrf_all.Exclude) && ...
+        numel(Tnrf_all.Exclude) == height(Tnrf_all), ...
+        'NRF CSV Exclude column must be a real numeric/logical vector.');
     Tnrf_all.Exclude = double(Tnrf_all.Exclude);
     assert(all(isfinite(Tnrf_all.Exclude)), 'NRF CSV Exclude column contains non-finite values.');
     assert(all(ismember(unique(Tnrf_all.Exclude), [0 1])), 'NRF CSV Exclude column must be 0/1 only.');
-    Tnrf_all = Tnrf_all(Tnrf_all.Exclude == 0, :);
 
-    % Keep only requested NRFName rows (exact match, case-sensitive)
-    reqNames = string(nrfNamesRequested(:));
-    keep = ismember(Tnrf_all.NRFName, reqNames);
-    Tnrf = Tnrf_all(keep, :);
-
-    % Optional early trim: keep only rows matching chosen filter (exact)
+    % Keep only rows relevant to the exact requested route.
+    keep = ismember(Tnrf_all.NRFName, requestedNames) & ...
+        upper(Tnrf_all.channel) == targetCh;
     if filterMode == "eventtype"
-        Tnrf = Tnrf(Tnrf.eventtype == string(filterValue), :);
+        keep = keep & Tnrf_all.eventtype == filterValue;
     else
-        Tnrf = Tnrf(Tnrf.eventannotation == string(filterValue), :);
+        keep = keep & Tnrf_all.eventannotation == filterValue;
     end
+    Tnrf = Tnrf_all(keep, :);
+    assert(~isempty(Tnrf), 'No requested NRF rows remain after route filtering.');
+
+    requiredNonblank = {'subjectID','sessionID','runID','channel','NRFName'};
+    for k = 1:numel(requiredNonblank)
+        c = requiredNonblank{k};
+        assert(all(strlength(Tnrf.(c)) > 0), ...
+            'Selected NRF column %s contains a blank key.', c);
+    end
+    assert(all(isfinite(Tnrf.epoch_index)) && ...
+        all(Tnrf.epoch_index == fix(Tnrf.epoch_index)), ...
+        'Selected NRF epoch_index values must be finite integers.');
+    assert(all(isfinite(Tnrf.projectionTimes_ms)) && all(isfinite(Tnrf.shift_samples)) && ...
+        all(isfinite(Tnrf.fglsCoef)) && all(Tnrf.shift_samples == round(Tnrf.shift_samples)), ...
+        'Selected NRF fit parameters must be finite, with integer shift_samples.');
+
+    % Require one exact requested fit per MAT item/template and identical flags.
+    matchedNRFRows = false(height(Tnrf), 1);
+    for itemIndex = 1:height(candidateRows)
+        item = candidateRows(itemIndex, :);
+        for nameIndex = 1:numel(requestedNames)
+            hit = find( ...
+                Tnrf.subjectID == item.subjectID & ...
+                Tnrf.sessionID == item.sessionID & ...
+                Tnrf.runID == item.runID & ...
+                Tnrf.epoch_index == item.epoch_index & ...
+                upper(Tnrf.channel) == upper(item.channel) & ...
+                Tnrf.eventtype == item.eventtype & ...
+                Tnrf.eventannotation == item.eventannotation & ...
+                Tnrf.NRFName == requestedNames(nameIndex));
+            assert(numel(hit) == 1, ...
+                ['Expected exactly one requested NRF row for %s|%s|%s|epoch=%g|%s|%s; ' ...
+                 'found %d.'], ...
+                item.subjectID, item.sessionID, item.runID, item.epoch_index, ...
+                item.channel, requestedNames(nameIndex), numel(hit));
+            assert(logical(Tnrf.Exclude(hit)) == item.mat_exclude, ...
+                ['MAT/CSV Exclude mismatch for %s|%s|%s|epoch=%g|%s|%s. ' ...
+                 'Rerun or repair the screened outputs before plotting.'], ...
+                item.subjectID, item.sessionID, item.runID, item.epoch_index, ...
+                item.channel, requestedNames(nameIndex));
+            matchedNRFRows(hit) = true;
+        end
+    end
+    assert(all(matchedNRFRows), ...
+        'Selected NRF rows contain keys that are not present in the requested MAT item set.');
+
+    % Only included rows reach the plotting join after exact agreement is proven.
+    Tnrf = Tnrf(Tnrf.Exclude == 0, :);
 else
     Tnrf = table();
 end
@@ -196,6 +337,8 @@ if overlayNRF
 
         nrfFile = which(char(nm + ".mat"));
         assert(~isempty(nrfFile), 'NRF template not found on path: %s.mat', nm);
+        assert(is_local_child(developerRoot, nrfFile), ...
+            'Resolved NRF template must remain beneath the local simple-eeg development root: %s', nrfFile);
 
         T = load(nrfFile);
         assert(isfield(T, 'NRF') && isfield(T, 'fs'), 'NRF file must contain variables NRF and fs: %s', nrfFile);
@@ -203,8 +346,10 @@ if overlayNRF
         nrfVec = T.NRF(:);
         fs = double(T.fs);
 
-        assert(isnumeric(nrfVec) && numel(nrfVec) >= 2, 'Bad NRF vector in: %s', nrfFile);
-        assert(isfinite(fs) && fs > 0, 'Bad fs in: %s', nrfFile);
+        assert(isnumeric(nrfVec) && isreal(nrfVec) && numel(nrfVec) >= 2 && ...
+            all(isfinite(nrfVec)), 'NRF must be a finite real numeric vector in: %s', nrfFile);
+        assert(isnumeric(T.fs) && isreal(T.fs) && isscalar(T.fs) && ...
+            isfinite(fs) && fs > 0, 'Bad fs in: %s', nrfFile);
 
         nrfTemplates(j).NRF = double(nrfVec);
         nrfTemplates(j).fs  = fs;
@@ -214,55 +359,11 @@ if overlayNRF
 end
 
 %% 6) Determine number of items to plot (first pass)
-targetCh = upper(strtrim(string(channelRequested)));
-
-n_items_total = 0;
-
-for d = 1:numel(epochs_pooled)
-    D = epochs_pooled(d);
-
-    % Channels present?
-    if ~isfield(D, 'channels') || isempty(D.channels)
-        continue
-    end
-    chLabels = string(D.channels(:));
-    chLabels(ismissing(chLabels)) = "";
-    chUpper = upper(strtrim(chLabels));
-
-    idxCh = find(chUpper == targetCh, 1, 'first');
-    if isempty(idxCh)
-        % Skip datasets missing the requested channel (silent policy)
-        continue
-    end
-
-    % Epoch metadata present?
-    if ~isfield(D, 'eventtype') || ~isfield(D, 'eventannotation') || ~isfield(D, 'epoch_index')
-        continue
-    end
-
-    evType  = string(D.eventtype(:));
-    evAnnot = string(D.eventannotation(:));
-    evType(ismissing(evType)) = "";
-    evAnnot(ismissing(evAnnot)) = "";
-
-    if filterMode == "eventtype"
-        mask_event = (evType == string(filterValue));
-    else
-        mask_event = (evAnnot == string(filterValue));
-    end
-
-    % Exclusion mask for requested channel (included == ~Exclude)
-    exCh = D.Exclude(idxCh, :);
-    mask_included = ~exCh(:);
-
-    mask_final = mask_event(:) & mask_included;
-
-    n_items_total = n_items_total + sum(mask_final);
-end
+n_items_total = sum(~candidateRows.mat_exclude);
 
 assert(n_items_total > 0, ...
     'No items matched: filterMode=%s, filterValue=%s, channel=%s', ...
-    filterMode, string(filterValue), string(channelRequested));
+    filterMode, filterValue, channelRequested);
 
 %% 7) Build the single plotting struct PLOT (second pass)
 seriesNames = ["EEG"];
@@ -287,6 +388,14 @@ PLOT.Y = [];  % allocated when we learn n_points from the first contributing dat
 PLOT.seriesNames = seriesNames;
 PLOT.epochMeta = table();
 PLOT.plotTitle = [];
+PLOT.selection = struct( ...
+    'filterMode', filterMode, ...
+    'filterValue', filterValue, ...
+    'channelRequested', channelRequested, ...
+    'overlayNRF', overlayNRF, ...
+    'nrfNamesRequested', requestedNames, ...
+    'missingOverlayPolicy', "error", ...
+    'datasetsMissingRequestedChannel', missingRequestedChannel);
 
 itemCounter = 0;
 Y_allocated = false;
@@ -295,26 +404,14 @@ Y_allocated = false;
 for d = 1:numel(epochs_pooled)
     D = epochs_pooled(d);
 
-    % Required fields (skip silently if missing)
-    reqFields = {'data','times_ms','channels','epoch_index','eventtype','eventannotation','subjectID','sessionID','runID','srate','Exclude'};
-    ok = true;
-    for k = 1:numel(reqFields)
-        if ~isfield(D, reqFields{k})
-            ok = false; break
-        end
-    end
-    if ~ok
-        continue
-    end
-
     % Channel index (case-insensitive)
-    chLabels = string(D.channels(:));
-    chLabels(ismissing(chLabels)) = "";
-    chUpper = upper(strtrim(chLabels));
-    idxCh = find(chUpper == targetCh, 1, 'first');
+    chLabels = normalise_text_vector(D.channels, size(D.data, 1), 'channels', d, false);
+    chUpper = upper(chLabels);
+    idxCh = find(chUpper == targetCh);
     if isempty(idxCh)
         continue
     end
+    assert(numel(idxCh) == 1, 'Dataset %d: requested channel match became ambiguous.', d);
     channelLabelOriginal = strtrim(chLabels(idxCh));
 
     % Time axis for this dataset
@@ -352,10 +449,8 @@ for d = 1:numel(epochs_pooled)
     end
 
     % Epoch selection mask
-    evType  = string(D.eventtype(:));
-    evAnnot = string(D.eventannotation(:));
-    evType(ismissing(evType)) = "";
-    evAnnot(ismissing(evAnnot)) = "";
+    evType = normalise_text_vector(D.eventtype, size(D.data, 3), 'eventtype', d, true);
+    evAnnot = normalise_text_vector(D.eventannotation, size(D.data, 3), 'eventannotation', d, true);
 
     if filterMode == "eventtype"
         mask_event = (evType == string(filterValue));
@@ -376,9 +471,9 @@ for d = 1:numel(epochs_pooled)
     end
 
     % IDs for this dataset
-    subj = strtrim(string(D.subjectID));
-    sess = strtrim(string(D.sessionID));
-    run  = strtrim(string(D.runID));
+    subj = normalise_text_scalar(D.subjectID, 'subjectID', d);
+    sess = normalise_text_scalar(D.sessionID, 'sessionID', d);
+    run  = normalise_text_scalar(D.runID, 'runID', d);
 
     epochIndexAll = double(D.epoch_index(:));
 
@@ -419,10 +514,8 @@ for d = 1:numel(epochs_pooled)
 
                 % Find matching NRF row(s) for this item + NRFName
                 % Keys: subjectID, sessionID, runID, epoch_index, channel (case-insensitive), NRFName
-                if isempty(Tnrf)
-                    % No rows at all after initial trimming -> keep NaN overlay
-                    continue
-                end
+                assert(~isempty(Tnrf), ...
+                    'Requested NRF table is unexpectedly empty while overlays are enabled.');
 
                 keyMask = (Tnrf.subjectID == subj) & ...
                     (Tnrf.sessionID == sess) & ...
@@ -433,10 +526,10 @@ for d = 1:numel(epochs_pooled)
 
                 hit = find(keyMask);
 
-                if isempty(hit)
-                    % No overlay for this NRF on this item (leave as NaNs)
-                    continue
-                end
+                assert(~isempty(hit), ...
+                    ['Requested NRF overlay is missing for %s | %s | %s | ' ...
+                     'epoch_index=%g | channel=%s | NRFName=%s'], ...
+                    subj, sess, run, epochIndexAll(e), channelLabelOriginal, nrfName);
 
                 if numel(hit) > 1
                     error('Duplicate NRF rows found for %s | %s | %s | epoch_index=%g | channel=%s | NRFName=%s', ...
@@ -498,6 +591,8 @@ end
 
 assert(itemCounter == n_items_total, 'Internal error: itemCounter mismatch (%d vs %d).', itemCounter, n_items_total);
 assert(~isempty(PLOT.X) && ~isempty(PLOT.Y), 'Internal error: PLOT was not populated.');
+assert(isreal(PLOT.Y) && ~any(isinf(PLOT.Y(:))), ...
+    'PLOT.Y must contain only real finite values or intentional NaN overlay padding.');
 
 % Build epochMeta table and attach
 PLOT.epochMeta = table( ...
@@ -533,11 +628,12 @@ zeroLineWidth = 1.0;
 eegColor      = [0 0.4470 0.7410];  % explicit MATLAB default blue
 zeroLineColor = [0.8 0.8 0.8];      % light grey
 
-% Up to three NRF colours, used in order for however many NRF series exist
+% Up to three NRF colours, used in order for however many NRF series exist.
+% The active Strasbourg preterm overlay is first and remains red.
 nrfColors = [ ...
-    [1 0 0]; ...
-    [20 204 204] / 255; ...
-    [0 0.5 0] ...
+    [1 0 0]; ...             % red: noxious_preterm_NRF_500Hz
+    [20 204 204] / 255; ...  % cyan spare
+    [0 0.5 0] ...            % dark-green spare
     ];
 
 % Fixed y-axis limits (default ±150 µV)
@@ -548,6 +644,23 @@ xLim_ms = [min(PLOT.X) max(PLOT.X)];
 
 % Optional: grid (default off)
 useGrid = false;
+
+validateattributes(axisFontSize, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'axisFontSize');
+validateattributes(titleFontSize, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'titleFontSize');
+validateattributes(eegLineWidth, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'eegLineWidth');
+validateattributes(nrfLineWidth, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'nrfLineWidth');
+validateattributes(zeroLineWidth, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'zeroLineWidth');
+validateattributes(yLim_uV, {'numeric'}, {'real','finite','vector','numel',2,'increasing'}, mfilename, 'yLim_uV');
+assert(isnumeric(eegColor) && isreal(eegColor) && isequal(size(eegColor), [1 3]) && ...
+    all(isfinite(eegColor)) && all(eegColor >= 0 & eegColor <= 1), ...
+    'eegColor must be a finite RGB triplet in [0,1].');
+assert(isnumeric(zeroLineColor) && isreal(zeroLineColor) && isequal(size(zeroLineColor), [1 3]) && ...
+    all(isfinite(zeroLineColor)) && all(zeroLineColor >= 0 & zeroLineColor <= 1), ...
+    'zeroLineColor must be a finite RGB triplet in [0,1].');
+assert(isnumeric(nrfColors) && isreal(nrfColors) && size(nrfColors, 2) == 3 && ...
+    all(isfinite(nrfColors(:))) && all(nrfColors(:) >= 0 & nrfColors(:) <= 1), ...
+    'nrfColors must contain finite RGB rows in [0,1].');
+assert(islogical(useGrid) && isscalar(useGrid), 'useGrid must be a logical scalar.');
 
 %% 11) Plot: 3×3 subplots per figure, as many figures as needed (no saving)
 n_items = size(PLOT.Y, 3);
@@ -605,3 +718,37 @@ for f = 1:n_figs
 end
 
 log_command_window('stop');
+
+function values = normalise_text_vector(rawValues, expectedCount, fieldName, datasetIndex, allowBlank)
+assert(iscell(rawValues) || isstring(rawValues) || ischar(rawValues) || iscategorical(rawValues), ...
+    'Dataset %d: %s must contain text values.', datasetIndex, fieldName);
+if ischar(rawValues)
+    values = string(cellstr(rawValues));
+    values = values(:);
+else
+    values = string(rawValues(:));
+end
+assert(numel(values) == expectedCount, ...
+    'Dataset %d: %s must contain exactly %d values.', datasetIndex, fieldName, expectedCount);
+values = strtrim(values);
+values(ismissing(values)) = "";
+if ~allowBlank
+    assert(all(strlength(values) > 0), ...
+        'Dataset %d: %s contains a blank value.', datasetIndex, fieldName);
+end
+end
+
+function value = normalise_text_scalar(rawValue, fieldName, datasetIndex)
+value = string(rawValue);
+assert(isscalar(value) && ~ismissing(value), ...
+    'Dataset %d: %s must be a nonmissing text scalar.', datasetIndex, fieldName);
+value = strtrim(value);
+assert(strlength(value) > 0, ...
+    'Dataset %d: %s must be nonblank.', datasetIndex, fieldName);
+end
+
+function tf = is_local_child(basePath, targetPath)
+baseCanonical = string(char(java.io.File(basePath).getCanonicalPath()));
+targetCanonical = string(char(java.io.File(targetPath).getCanonicalPath()));
+tf = startsWith(targetCanonical, baseCanonical + string(filesep));
+end

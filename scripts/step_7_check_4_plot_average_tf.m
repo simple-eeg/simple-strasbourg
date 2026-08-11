@@ -23,12 +23,12 @@
 %        - Per epoch: TF_db(t,f) = 10*log10(max(R(t,f), eps))
 %   7) Aggregate TF_db across epochs using epochAgg ("mean" or "median").
 %   8) Plot a single TF heatmap (time on x, frequency on y), with:
-%        - Fixed symmetric colour limits clim_db (default [-6 6])
+%        - Fixed symmetric colour limits clim_db (default [-4 4])
 %        - Vertical reference line at t=0
 %        - User-configurable plot limits (NOT clamped; blank space allowed)
 %        - Default yAxisScale="linear" uses interpolation to 1 Hz display grid
 %
-% Inputs (screened; must already exist from Step 5.3 apply-decisions)
+% Inputs (screened; must already exist from Step 6.3 apply-decisions)
 %   <baseDir>/data/summary/screening/pooled_screened_eeg_epochs.mat
 %     - variable: epochs_pooled (struct array, one element per dataset)
 %     - required field on each element: Exclude [nCh x nEp] logical
@@ -81,7 +81,7 @@ epochAgg        = "mean";     % across-epoch aggregation of TF_db: "mean" or "me
 % 2E. Display settings
 % yAxisScale:
 %   "linear" : interpolate TF onto 1 Hz grid for display (visually correct in Hz)
-%   "log"    : display computed (log-spaced) wavelet frequencies directly (no interpolation)
+%   "log"    : display computed wavelet frequencies on a logarithmic Hz axis
 yAxisScale = "linear";
 
 % Plot limits (NOT clamped; blank space allowed)
@@ -99,9 +99,29 @@ figureTitleFontSize = 12;
 axisFontSize        = 15;
 
 %% ────────────────────────── 3) Validate user-config ──────────────────────────
-baselineTimeAgg = lower(string(baselineTimeAgg));
-epochAgg        = lower(string(epochAgg));
-yAxisScale      = lower(string(yAxisScale));
+channelFilter   = string(channelFilter);
+eventtypeFilter = string(eventtypeFilter);
+baselineTimeAgg = string(baselineTimeAgg);
+epochAgg        = string(epochAgg);
+yAxisScale      = string(yAxisScale);
+
+if ~isscalar(channelFilter) || ismissing(channelFilter) || strlength(strtrim(channelFilter)) == 0
+    error('Config error: channelFilter must be one nonblank text scalar.');
+end
+if ~isscalar(eventtypeFilter) || ismissing(eventtypeFilter) || strlength(strtrim(eventtypeFilter)) == 0
+    error('Config error: eventtypeFilter must be one nonblank text scalar.');
+end
+if ~isscalar(baselineTimeAgg) || ismissing(baselineTimeAgg) || ...
+        ~isscalar(epochAgg) || ismissing(epochAgg) || ...
+        ~isscalar(yAxisScale) || ismissing(yAxisScale)
+    error('Config error: baselineTimeAgg, epochAgg, and yAxisScale must each be one text scalar.');
+end
+
+channelFilter   = strtrim(channelFilter);
+eventtypeFilter = strtrim(eventtypeFilter);
+baselineTimeAgg = lower(strtrim(baselineTimeAgg));
+epochAgg        = lower(strtrim(epochAgg));
+yAxisScale      = lower(strtrim(yAxisScale));
 
 validAgg = ["mean","median"];
 if ~ismember(baselineTimeAgg, validAgg)
@@ -116,20 +136,40 @@ if ~ismember(yAxisScale, validAxis)
     error('Config error: yAxisScale must be "linear" or "log".');
 end
 
-if ~isscalar(voicesPerOctave) || ~isfinite(voicesPerOctave) || voicesPerOctave <= 0 || mod(voicesPerOctave,1) ~= 0
-    error('Config error: voicesPerOctave must be a positive integer scalar.');
+if ~isnumeric(voicesPerOctave) || ~isreal(voicesPerOctave) || ~isscalar(voicesPerOctave) || ...
+        ~isfinite(voicesPerOctave) || voicesPerOctave < 1 || voicesPerOctave > 48 || mod(voicesPerOctave,1) ~= 0
+    error('Config error: voicesPerOctave must be an integer scalar from 1 through 48.');
 end
 
-if ~isnumeric(clim_db) || numel(clim_db) ~= 2 || any(~isfinite(clim_db)) || clim_db(2) <= clim_db(1)
+if ~isnumeric(clim_db) || ~isreal(clim_db) || numel(clim_db) ~= 2 || any(~isfinite(clim_db)) || clim_db(2) <= clim_db(1)
     error('Config error: clim_db must be [min max] with finite values and max>min.');
 end
 
-if ~isscalar(tmin_plot_ms) || ~isscalar(tmax_plot_ms) || ~isfinite(tmin_plot_ms) || ~isfinite(tmax_plot_ms) || tmax_plot_ms <= tmin_plot_ms
+if ~isnumeric(tmin_plot_ms) || ~isreal(tmin_plot_ms) || ~isscalar(tmin_plot_ms) || ...
+        ~isnumeric(tmax_plot_ms) || ~isreal(tmax_plot_ms) || ~isscalar(tmax_plot_ms) || ...
+        ~isfinite(tmin_plot_ms) || ~isfinite(tmax_plot_ms) || tmax_plot_ms <= tmin_plot_ms
     error('Config error: tmin_plot_ms and tmax_plot_ms must be finite scalars with tmin<tmax.');
 end
 
-if ~isscalar(fmin_plot_hz) || ~isscalar(fmax_plot_hz) || ~isfinite(fmin_plot_hz) || ~isfinite(fmax_plot_hz) || fmax_plot_hz <= fmin_plot_hz
+if ~isnumeric(fmin_plot_hz) || ~isreal(fmin_plot_hz) || ~isscalar(fmin_plot_hz) || ...
+        ~isnumeric(fmax_plot_hz) || ~isreal(fmax_plot_hz) || ~isscalar(fmax_plot_hz) || ...
+        ~isfinite(fmin_plot_hz) || ~isfinite(fmax_plot_hz) || fmax_plot_hz <= fmin_plot_hz
     error('Config error: fmin_plot_hz and fmax_plot_hz must be finite scalars with fmin<fmax.');
+end
+
+if yAxisScale == "log" && fmin_plot_hz <= 0
+    error('Config error: fmin_plot_hz must be positive when yAxisScale="log".');
+end
+
+if ~islogical(useExclusionFlags) || ~isscalar(useExclusionFlags)
+    error('Config error: useExclusionFlags must be a logical scalar.');
+end
+
+if ~isnumeric(figureTitleFontSize) || ~isreal(figureTitleFontSize) || ...
+        ~isscalar(figureTitleFontSize) || ~isfinite(figureTitleFontSize) || figureTitleFontSize <= 0 || ...
+        ~isnumeric(axisFontSize) || ~isreal(axisFontSize) || ...
+        ~isscalar(axisFontSize) || ~isfinite(axisFontSize) || axisFontSize <= 0
+    error('Config error: figureTitleFontSize and axisFontSize must be positive finite numeric scalars.');
 end
 
 %% ────────────────────────── 4) Load screened epochs and assemble series ──────────────────────────
@@ -146,7 +186,7 @@ end
 % Hard requirement: Exclude must be present (even if ignoring it)
 if ~isfield(epochs_pooled, 'Exclude')
     error(['Expected field "Exclude" on epochs_pooled (screened MAT). ', ...
-        'This indicates Step 5.3 (apply-decisions) has not been run, or the wrong file was used.']);
+        'This indicates Step 6.3 (apply-decisions) has not been run, or the wrong file was used.']);
 end
 
 % Collect time series and metadata (one column per epoch-series)
@@ -172,29 +212,93 @@ for i = 1:numel(epochs_pooled)
         end
     end
 
+    if ~isnumeric(ep.data) || ~isreal(ep.data) || isempty(ep.data) || ndims(ep.data) > 3
+        error('Dataset %d: ep.data must be a non-empty real numeric [nCh x nPts x nEp] array.', i);
+    end
+    if any(~isfinite(ep.data(:)))
+        error('Dataset %d: ep.data contains a nonfinite value.', i);
+    end
     if ~islogical(ep.Exclude)
         error('Dataset %d: Exclude must be logical.', i);
     end
-    if ndims(ep.data) ~= 3
-        error('Dataset %d: expected ep.data as [nCh x nPts x nEp].', i);
-    end
 
     nCh = size(ep.data, 1);
+    nPts = size(ep.data, 2);
     nEp = size(ep.data, 3);
 
     if ~isequal(size(ep.Exclude), [nCh, nEp])
         error('Dataset %d: Exclude has wrong shape. Expected [%d x %d].', i, nCh, nEp);
     end
 
-    subj = string(strtrim(ep.subjectID));
-    sess = string(strtrim(ep.sessionID));
-    run  = string(strtrim(ep.runID));
+    subj = strtrim(string(ep.subjectID));
+    sess = strtrim(string(ep.sessionID));
+    run  = strtrim(string(ep.runID));
+    if ~isscalar(subj) || ismissing(subj) || strlength(subj) == 0 || ...
+            ~isscalar(sess) || ismissing(sess) || strlength(sess) == 0 || ...
+            ~isscalar(run) || ismissing(run) || strlength(run) == 0
+        error('Dataset %d: subjectID, sessionID, and runID must each be one nonblank text value.', i);
+    end
 
-    chLabels = string(ep.channels(:));
-    evtTypes = string(ep.eventtype(:));
-    epIndex  = double(ep.epoch_index(:));
+    if ischar(ep.channels)
+        chLabels = string(cellstr(ep.channels));
+    elseif isstring(ep.channels) || iscellstr(ep.channels)
+        chLabels = string(ep.channels(:));
+    else
+        error('Dataset %d: channels must be a text vector.', i);
+    end
+    if ischar(ep.eventtype)
+        evtTypes = string(cellstr(ep.eventtype));
+    elseif isstring(ep.eventtype) || iscellstr(ep.eventtype)
+        evtTypes = string(ep.eventtype(:));
+    else
+        error('Dataset %d: eventtype must be a text vector.', i);
+    end
+    chLabels = strtrim(chLabels(:));
+    evtTypes = strtrim(evtTypes(:));
 
-    chIdx = find(lower(strtrim(chLabels)) == lower(strtrim(channelFilter)), 1, 'first');
+    if numel(chLabels) ~= nCh || any(ismissing(chLabels)) || any(strlength(chLabels) == 0)
+        error('Dataset %d: channels must contain one nonblank label for each of %d data channels.', i, nCh);
+    end
+    if numel(unique(lower(chLabels))) ~= nCh
+        error('Dataset %d: channel labels must be unique after case-insensitive trimming.', i);
+    end
+    if numel(evtTypes) ~= nEp || any(ismissing(evtTypes)) || any(strlength(evtTypes) == 0)
+        error('Dataset %d: eventtype must contain one nonblank label for each of %d epochs.', i, nEp);
+    end
+
+    if ~isnumeric(ep.epoch_index) || ~isreal(ep.epoch_index)
+        error('Dataset %d: epoch_index must be a real numeric vector.', i);
+    end
+    epIndex = double(ep.epoch_index(:));
+    if numel(epIndex) ~= nEp || any(~isfinite(epIndex)) || any(mod(epIndex, 1) ~= 0)
+        error('Dataset %d: epoch_index must contain one finite integer for each of %d epochs.', i, nEp);
+    end
+    if numel(unique(epIndex)) ~= nEp
+        error('Dataset %d: epoch_index values must be unique.', i);
+    end
+
+    if ~isnumeric(ep.times_ms) || ~isreal(ep.times_ms)
+        error('Dataset %d: times_ms must be a real numeric vector.', i);
+    end
+    thisTimes = double(ep.times_ms(:));
+    if numel(thisTimes) ~= nPts || any(~isfinite(thisTimes)) || any(diff(thisTimes) <= 0)
+        error('Dataset %d: times_ms must have %d finite, strictly increasing samples.', i, nPts);
+    end
+    if ~isnumeric(ep.srate) || ~isreal(ep.srate) || ~isscalar(ep.srate) || ...
+            ~isfinite(ep.srate) || ep.srate <= 2
+        error('Dataset %d: srate must be one finite real value greater than 2 Hz.', i);
+    end
+    expectedStepMs = 1000 / double(ep.srate);
+    stepToleranceMs = max(1e-9, 1e-6 * expectedStepMs);
+    if nPts < 2 || any(abs(diff(thisTimes) - expectedStepMs) > stepToleranceMs)
+        error('Dataset %d: times_ms spacing is not coherent with srate=%.12g Hz.', i, double(ep.srate));
+    end
+
+    chMatches = find(lower(chLabels) == lower(channelFilter));
+    if numel(chMatches) > 1
+        error('Dataset %d: channelFilter="%s" matches more than one channel.', i, char(channelFilter));
+    end
+    chIdx = chMatches;
     if isempty(chIdx)
         continue;
     end
@@ -206,10 +310,10 @@ for i = 1:numel(epochs_pooled)
 
     % Enforce identical time base and sampling rate across all CONTRIBUTING datasets
     if isempty(times_ms)
-        times_ms = ep.times_ms(:);
+        times_ms = thisTimes;
         srate    = double(ep.srate);
     else
-        if numel(times_ms) ~= numel(ep.times_ms(:)) || any(times_ms ~= ep.times_ms(:))
+        if numel(times_ms) ~= numel(thisTimes) || any(times_ms ~= thisTimes)
             error('Time vector mismatch: dataset %d differs from the first dataset (TF requires consistent time base).', i);
         end
         if double(ep.srate) ~= srate
@@ -221,7 +325,7 @@ for i = 1:numel(epochs_pooled)
     for k = 1:numel(keepEpochs)
         eidx = keepEpochs(k);
 
-        thisCol = squeeze(ep.data(chIdx, :, eidx)).';
+        thisCol = reshape(ep.data(chIdx, :, eidx), [], 1);
         if ~isa(thisCol, 'single') && ~isa(thisCol, 'double')
             thisCol = single(thisCol);
         end
@@ -247,6 +351,17 @@ if isempty(ts)
 end
 
 [n_points, n_series] = size(ts);
+
+if n_points ~= numel(times_ms)
+    error('Internal assembly error: collected data length does not match times_ms length.');
+end
+if n_points < 4
+    error('TF computation requires at least four time samples per selected series.');
+end
+seriesIdentity = [series_subj, series_sess, series_run, string(series_epix)];
+if size(unique(seriesIdentity, 'rows'), 1) ~= n_series
+    error('Selected items are not unique by subject, session, run, channel, eventtype, and epoch_index.');
+end
 
 n_candidates_total = n_series;
 n_flagged_mat      = sum(series_mat_excl);
@@ -290,7 +405,8 @@ fb = cwtfilterbank( ...
     'SamplingFrequency', Fs, ...
     'Wavelet',           'amor', ...
     'VoicesPerOctave',   voicesPerOctave, ...
-    'FrequencyLimits',   [fmin_compute_hz, fmax_compute_hz]);
+    'FrequencyLimits',   [fmin_compute_hz, fmax_compute_hz], ...
+    'Boundary',          'reflection');
 
 %% ────────────────────────── 7) Compute per-epoch TF (power), baseline-relative dB, then aggregate ──────────────────────────
 TF_avg_db_compute = [];
@@ -303,6 +419,14 @@ switch epochAgg
             y = double(ts(:, j));
 
             [wt, f] = cwt(y, 'FilterBank', fb);  % wt: [nF x nTime], f: [nF x 1]
+            if ~isnumeric(f) || ~isreal(f) || any(~isfinite(f(:))) || any(f(:) <= 0) || ...
+                    ~(all(diff(double(f(:))) > 0) || all(diff(double(f(:))) < 0))
+                error('CWT returned an invalid frequency grid. Expected finite, positive, strictly monotonic Hz values.');
+            end
+            if size(wt, 1) ~= numel(f) || size(wt, 2) ~= n_points || ...
+                    any(~isfinite(real(wt(:)))) || any(~isfinite(imag(wt(:))))
+                error('CWT returned invalid coefficients or dimensions for series %d.', j);
+            end
             if isempty(freq_hz_compute)
                 freq_hz_compute = double(f(:));
                 runningSum = zeros(numel(freq_hz_compute), n_points, 'double');
@@ -341,6 +465,14 @@ switch epochAgg
             y = double(ts(:, j));
 
             [wt, f] = cwt(y, 'FilterBank', fb);
+            if ~isnumeric(f) || ~isreal(f) || any(~isfinite(f(:))) || any(f(:) <= 0) || ...
+                    ~(all(diff(double(f(:))) > 0) || all(diff(double(f(:))) < 0))
+                error('CWT returned an invalid frequency grid. Expected finite, positive, strictly monotonic Hz values.');
+            end
+            if size(wt, 1) ~= numel(f) || size(wt, 2) ~= n_points || ...
+                    any(~isfinite(real(wt(:)))) || any(~isfinite(imag(wt(:))))
+                error('CWT returned invalid coefficients or dimensions for series %d.', j);
+            end
             if isempty(freq_hz_compute)
                 freq_hz_compute = double(f(:));
                 TF_stack = zeros(numel(freq_hz_compute), n_points, n_after_flags, 'single');
@@ -376,6 +508,11 @@ switch epochAgg
         error('Internal error: unexpected epochAgg: %s', epochAgg);
 end
 
+if ~isreal(TF_avg_db_compute) || any(~isfinite(TF_avg_db_compute(:))) || ...
+        ~isequal(size(TF_avg_db_compute), [numel(freq_hz_compute), n_points])
+    error('Computed TF result is nonfinite or has unexpected dimensions.');
+end
+
 %% ────────────────────────── 8) Build display matrix (optional interpolation for linear y) ──────────────────────────
 time_ms = t_ms;
 
@@ -396,6 +533,18 @@ switch yAxisScale
 
     otherwise
         error('Internal error: unexpected yAxisScale: %s', yAxisScale);
+end
+
+
+if ~isreal(TF_avg_db_display) || any(isinf(TF_avg_db_display(:))) || ...
+        ~isequal(size(TF_avg_db_display), [numel(freq_hz_display), n_points])
+    error('Display TF result has infinite values or unexpected dimensions.');
+end
+displayRowsWithinComputeSupport = freq_hz_display >= min(freq_hz_compute) & ...
+    freq_hz_display <= max(freq_hz_compute);
+if ~any(displayRowsWithinComputeSupport) || ...
+        any(~isfinite(TF_avg_db_display(displayRowsWithinComputeSupport, :)), 'all')
+    error('Display TF result is nonfinite within the computed frequency support.');
 end
 
 %% ────────────────────────── 9) Assemble tf_all output struct ──────────────────────────
@@ -429,8 +578,15 @@ meta.wavelet             = 'amor (analytic Morlet)';
 meta.voicesPerOctave     = voicesPerOctave;
 meta.fmin_compute_hz     = fmin_compute_hz;
 meta.fmax_compute_hz     = fmax_compute_hz;
+meta.boundary             = char(fb.Boundary);
+meta.coneOfInfluenceMaskApplied = false;
 
 meta.yAxisScale          = char(yAxisScale);
+if yAxisScale == "linear"
+    meta.displayFrequencyCoordinates = 'interpolated 1-Hz linear frequency coordinates';
+else
+    meta.displayFrequencyCoordinates = 'native CWT frequency coordinates on logarithmic Hz axis';
+end
 
 meta.tmin_plot_ms        = tmin_plot_ms;
 meta.tmax_plot_ms        = tmax_plot_ms;
@@ -446,8 +602,11 @@ fprintf('  channel=%s | eventtype=%s\n', tf_all.meta.channelFilter, tf_all.meta.
 fprintf('  Fs=%.3f Hz | nTime=%d | baseline=t<0 (nBaseline=%d)\n', Fs, n_points, nBaseline);
 fprintf('  wavelet=%s | voicesPerOctave=%d | fCompute=[%.3f, %.3f] Hz | nF_compute=%d\n', ...
     tf_all.meta.wavelet, voicesPerOctave, fmin_compute_hz, fmax_compute_hz, numel(freq_hz_compute));
+fprintf('  boundary=%s | coneOfInfluenceMaskApplied=%s\n', ...
+    tf_all.meta.boundary, mat2str(tf_all.meta.coneOfInfluenceMaskApplied));
 fprintf('  baselineTimeAgg=%s | epochAgg=%s\n', tf_all.meta.baselineTimeAgg, tf_all.meta.epochAgg);
-fprintf('  yAxisScale=%s | nF_display=%d\n', tf_all.meta.yAxisScale, numel(freq_hz_display));
+fprintf('  yAxisScale=%s | displayFrequencyCoordinates=%s | nF_display=%d\n', ...
+    tf_all.meta.yAxisScale, tf_all.meta.displayFrequencyCoordinates, numel(freq_hz_display));
 fprintf('  plotLimits: t=[%g %g] ms | f=[%g %g] Hz | clim_db=[%g %g]\n', ...
     tmin_plot_ms, tmax_plot_ms, fmin_plot_hz, fmax_plot_hz, clim_db(1), clim_db(2));
 
@@ -463,9 +622,20 @@ end
 figure('Color','w');
 
 % Heatmap: rows = frequency, columns = time
-imagesc(tf_all.time_ms, tf_all.freq_hz_display, tf_all.TF_avg_db_display);
+switch yAxisScale
+    case "linear"
+        imagesc(tf_all.time_ms, tf_all.freq_hz_display, tf_all.TF_avg_db_display);
+        set(gca, 'YDir', 'normal', 'YScale', 'linear', 'FontSize', axisFontSize);
+    case "log"
+        surface(tf_all.time_ms(:).', tf_all.freq_hz_display, ...
+            zeros(size(tf_all.TF_avg_db_display)), tf_all.TF_avg_db_display, ...
+            'EdgeColor', 'none', 'FaceColor', 'texturemap');
+        view(2);
+        set(gca, 'YDir', 'normal', 'YScale', 'log', 'FontSize', axisFontSize);
+    otherwise
+        error('Internal error: unexpected yAxisScale: %s', yAxisScale);
+end
 
-set(gca, 'YDir', 'normal', 'FontSize', axisFontSize);
 grid on; box on;
 
 xlabel('Time (ms)', 'FontSize', axisFontSize);

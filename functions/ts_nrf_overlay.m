@@ -25,8 +25,12 @@ function [overlay_ts, fit] = ts_nrf_overlay(y_ts, nrfName, times_ms, fit_time_ms
 %   - A final amplitude fit is then performed on the best window using either:
 %       * OLS with intercept (fitlm), or
 %       * AR(1) feasible GLS (fGLS) on demeaned data (no intercept).
-%   - NaN policy: if any NaN appears anywhere in the union of all candidate
-%     samples in the jitter band, the function errors.
+%   - Non-finite policy: if any NaN or Inf appears anywhere in the union of
+%     all candidate samples in the jitter band, the function errors.
+%   - Every requested jitter candidate must contain the complete NRF. If the
+%     epoch cannot support the full requested search, the function errors
+%     before alignment or amplitude fitting; it never clips the search range
+%     or fits a partial template.
 %
 % Outputs
 %   overlay_ts  : [n_points x 1] numeric column vector. NRF template, shifted and
@@ -40,7 +44,14 @@ function [overlay_ts, fit] = ts_nrf_overlay(y_ts, nrfName, times_ms, fit_time_ms
 %       fs              : NRF sampling rate (Hz)
 %       dt_ms           : median time step (ms)
 %       anchor_ms       : fit_time_ms (for reference)
+%       anchor_realised_ms : nearest sampled anchor time actually used
 %       jitter_ms       : jitter_ms (for reference)
+%       support_policy  : 'full_template_all_requested_shifts'
+%       full_template_required / partial_template_support_used : support flags
+%       requested_shift_samples / requested_shift_ms : requested search range
+%       realised_shift_samples / realised_shift_ms   : evaluated search range
+%       search_was_clipped : always false for an accepted fit
+%       n_candidate_windows : number of complete NRF windows evaluated
 %       n_points        : length(y_ts)
 %       nrf_length      : length(NRF) in samples
 %       i0              : anchor index in y_ts (nearest to fit_time_ms)
@@ -80,7 +91,14 @@ if ~(isnumeric(y_ts) && isvector(y_ts) && ~isempty(y_ts))
     error('ts_nrf_overlay:InvalidY', 'y_ts must be a non-empty numeric vector.');
 end
 y_ts = y_ts(:);  % force column
+if ~isreal(y_ts) || any(isinf(y_ts))
+    error('ts_nrf_overlay:InvalidYValues', ...
+        'y_ts must be real and may contain finite values or NaNs, but not Inf.');
+end
 n_points = numel(y_ts);
+if n_points < 2
+    error('ts_nrf_overlay:InvalidY', 'y_ts must contain at least two samples.');
+end
 
 % nrfName
 if ~(ischar(nrfName) || (isstring(nrfName) && isscalar(nrfName)))
@@ -88,9 +106,13 @@ if ~(ischar(nrfName) || (isstring(nrfName) && isscalar(nrfName)))
         'nrfName must be a character vector or scalar string.');
 end
 nrfName = string(nrfName);
+if ismissing(nrfName) || strlength(strtrim(nrfName)) == 0
+    error('ts_nrf_overlay:InvalidNRFName', 'nrfName must be non-empty.');
+end
+nrfName = strtrim(nrfName);
 
 % times_ms
-if ~(isnumeric(times_ms) && isvector(times_ms) && numel(times_ms) == n_points)
+if ~(isnumeric(times_ms) && isreal(times_ms) && isvector(times_ms) && numel(times_ms) == n_points)
     error('ts_nrf_overlay:InvalidTimes', ...
         'times_ms must be a numeric vector with the same length as y_ts.');
 end
@@ -109,10 +131,10 @@ end
 srate_eff = 1000 / dt_med;
 
 % fit_time_ms & jitter_ms
-if ~(isscalar(fit_time_ms) && isnumeric(fit_time_ms) && isfinite(fit_time_ms))
+if ~(isscalar(fit_time_ms) && isnumeric(fit_time_ms) && isreal(fit_time_ms) && isfinite(fit_time_ms))
     error('ts_nrf_overlay:InvalidAnchor', 'fit_time_ms must be a finite numeric scalar (ms).');
 end
-if ~(isscalar(jitter_ms) && isnumeric(jitter_ms) && isfinite(jitter_ms))
+if ~(isscalar(jitter_ms) && isnumeric(jitter_ms) && isreal(jitter_ms) && isfinite(jitter_ms))
     error('ts_nrf_overlay:InvalidJitter', 'jitter_ms must be a finite numeric scalar (ms).');
 end
 if jitter_ms < 0
@@ -162,13 +184,22 @@ if ~isfield(S, 'NRF') || ~isfield(S, 'fs')
     error('ts_nrf_overlay:BadNRFFile', ...
         'NRF file must contain variables "NRF" (vector) and "fs" (Hz).');
 end
+if ~(isnumeric(S.NRF) && isreal(S.NRF) && isvector(S.NRF) && numel(S.NRF) >= 2) || ...
+        ~(isnumeric(S.fs) && isreal(S.fs) && isscalar(S.fs))
+    error('ts_nrf_overlay:BadNRFVars', ...
+        'NRF must be a real numeric vector (length >= 2) and fs a real numeric scalar.');
+end
 NRF = S.NRF(:);
 fs  = double(S.fs);
 L   = numel(NRF);
 
-if ~isnumeric(NRF) || ~isvector(NRF) || L < 2 || ~isfinite(fs) || fs <= 0
+if ~isfinite(fs) || fs <= 0
     error('ts_nrf_overlay:BadNRFVars', ...
         'NRF must be a numeric vector (length >= 2) and fs a positive finite scalar.');
+end
+if ~isreal(NRF) || any(~isfinite(NRF))
+    error('ts_nrf_overlay:BadNRFValues', ...
+        'NRF must contain only real, finite values.');
 end
 if var(NRF) == 0
     error('ts_nrf_overlay:NRFZeroVariance', ...
@@ -192,18 +223,49 @@ end
 J = round(jitter_ms / dt_med);               % half-width in samples (integer)
 starts_raw = (i0 - J) : (i0 + J);
 
-% Keep starts that fit fully within data bounds
-starts = starts_raw(starts_raw >= 1 & starts_raw + L - 1 <= n_points);
-if isempty(starts)
-    error('ts_nrf_overlay:OutOfBounds', ...
-        'NRF window exceeds data bounds. Adjust fit_time_ms and/or jitter_ms.');
+% Require the complete NRF at every requested start. Do not silently narrow
+% the requested jitter range or compare partial templates.
+valid_start_min = 1;
+valid_start_max = n_points - L + 1;
+requested_shift_samples = [starts_raw(1) - i0, starts_raw(end) - i0];
+
+if valid_start_max < valid_start_min
+    error('ts_nrf_overlay:FullTemplateSearchOutOfBounds', ...
+        ['Full-template support is required for every requested shift, but ', ...
+         'the %d-sample NRF is longer than the %d-sample epoch [%.9g %.9g] ms. ', ...
+         'Use a shorter NRF or extend the epoch. No alignment or amplitude ', ...
+         'fit was performed.'], ...
+        L, n_points, times_ms(1), times_ms(end));
 end
 
-% Disallow NaNs in the union of candidate samples
+supported_shift_samples = [valid_start_min - i0, valid_start_max - i0];
+if starts_raw(1) < valid_start_min || starts_raw(end) > valid_start_max
+    error('ts_nrf_overlay:FullTemplateSearchOutOfBounds', ...
+        ['Full-template support is required for every requested shift. ', ...
+         'Around requested anchor %.9g ms (nearest sample %.9g ms), shifts ', ...
+         '[%d %d] samples ([%.9g %.9g] ms) were requested, but the ', ...
+         '%d-sample NRF within epoch [%.9g %.9g] ms supports only shifts ', ...
+         '[%d %d] samples ([%.9g %.9g] ms). Change the anchor, reduce ', ...
+         'jitter, extend the epoch, or remove this overlay from the active ', ...
+         'compute list. No alignment or amplitude fit was performed.'], ...
+        fit_time_ms, times_ms(i0), ...
+        requested_shift_samples(1), requested_shift_samples(2), ...
+        requested_shift_samples(1) * dt_med, ...
+        requested_shift_samples(2) * dt_med, ...
+        L, times_ms(1), times_ms(end), ...
+        supported_shift_samples(1), supported_shift_samples(2), ...
+        supported_shift_samples(1) * dt_med, ...
+        supported_shift_samples(2) * dt_med);
+end
+
+starts = starts_raw;
+search_was_clipped = false;
+
+% Disallow non-finite values in the union of candidate samples
 idx_union = starts(1):(starts(end) + L - 1);
-if any(isnan(y_ts(idx_union)))
-    error('ts_nrf_overlay:NaNInSearchRegion', ...
-        'NaN found within the search region (union of all candidate windows).');
+if any(~isfinite(y_ts(idx_union)))
+    error('ts_nrf_overlay:NonFiniteSearchRegion', ...
+        'A non-finite value was found within the union of candidate windows.');
 end
 
 % Build candidate matrix (equal-length windows)
@@ -218,10 +280,17 @@ r = zeros(1, K);
 for k = 1:K
     r(k) = corr(Y(:,k), NRF);
 end
-r_max = max(r);
+finite_r = isfinite(r);
+if ~any(finite_r)
+    error('ts_nrf_overlay:NoFiniteCorrelation', ...
+        'No candidate NRF window produced a finite Pearson correlation.');
+end
+r_for_selection = r;
+r_for_selection(~finite_r) = -Inf;
+r_max = max(r_for_selection);
 % Tie tolerance: absolute/relative hybrid
 tol_tie = max(1e-12, 1e-9 * abs(r_max));
-is_tie = (r_max - r) <= tol_tie;
+is_tie = finite_r & ((r_max - r_for_selection) <= tol_tie);
 tie_idx = find(is_tie);
 
 if numel(tie_idx) > 1
@@ -229,7 +298,7 @@ if numel(tie_idx) > 1
     [~, relmin] = min(abs(starts(tie_idx) - i0));
     k_best = tie_idx(relmin);
 else
-    [~, k_best] = max(r);
+    [~, k_best] = max(r_for_selection);
 end
 s_best = starts(k_best);
 
@@ -317,7 +386,17 @@ fit.nrfFile         = char(nrfFile);
 fit.fs              = fs;
 fit.dt_ms           = dt_med;
 fit.anchor_ms       = fit_time_ms;
+fit.anchor_realised_ms = times_ms(i0);
 fit.jitter_ms       = jitter_ms;
+fit.support_policy  = 'full_template_all_requested_shifts';
+fit.full_template_required = true;
+fit.partial_template_support_used = false;
+fit.requested_shift_samples = [starts_raw(1) - i0, starts_raw(end) - i0];
+fit.requested_shift_ms      = fit.requested_shift_samples * dt_med;
+fit.realised_shift_samples  = [starts(1) - i0, starts(end) - i0];
+fit.realised_shift_ms       = fit.realised_shift_samples * dt_med;
+fit.search_was_clipped      = search_was_clipped;
+fit.n_candidate_windows     = K;
 fit.n_points        = n_points;
 fit.nrf_length      = L;
 fit.i0              = i0;

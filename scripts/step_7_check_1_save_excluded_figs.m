@@ -12,17 +12,18 @@
 %       sub-<subjectID>_ses-<sessionID>_run-<runID>_epoch-<epoch_index>_chan-<channel>_<eventtype>.png
 %     (eventtype may be empty => filename ends with "_<empty>.png" i.e. trailing underscore)
 %
-% Plot layout (1x3), matching step_5_screen_2_viewer_rate_epochs.m:
+% Plot layout (1x3), matching step_6_screen_2_viewer_rate_epochs.m:
 %   1) Time-domain (fixed y)
 %   2) Time-domain (auto y)
 %   3) PSD (log power, pmtm)
 %
 % Behaviour
 %   - Deterministic generation order: subjectID, sessionID, runID, epoch_index, channel
-%   - If excluded_epochs exists, deletes ALL contents inside it (files + subfolders), but keeps the folder.
+%   - Builds and verifies a complete local staging directory before replacing
+%     any existing complete excluded_epochs directory.
 %   - Uses exportgraphics only (no fallbacks).
 %   - Figures are created invisibly and closed after export.
-%   - If no excluded items, folder is cleared/created and script prints 0 saved.
+%   - If no excluded items, a validated empty output directory is promoted.
 %   - Prints a progress counter to the Command Window.
 %
 % Logging
@@ -60,15 +61,28 @@ fprintf('Plotting excluded epoch–channel items.\n');
 
 assert(isfolder(screeningDir), 'screeningDir does not exist (expected): %s', screeningDir);
 assert(isfile(inMat), 'Missing screened epochs MAT: %s', inMat);
+assert(is_local_child(baseDir, screeningDir) && is_local_child(baseDir, inMat) && ...
+    is_local_child(baseDir, outDir), ...
+    'Every read/write target must remain beneath the local Strasbourg repository.');
 
-% Ensure output folder exists; do NOT create screeningDir
-if ~exist(outDir, 'dir')
-    ok = mkdir(outDir);
-    assert(ok, 'Failed to create output folder: %s', outDir);
-end
+validateattributes(fixed_ylim_units, {'numeric'}, ...
+    {'real','finite','vector','numel',2,'increasing'}, mfilename, 'fixed_ylim_units');
+validateattributes(time_xlim_ms, {'numeric'}, ...
+    {'real','finite','vector','numel',2,'increasing'}, mfilename, 'time_xlim_ms');
+validateattributes(psd_fmin_hz, {'numeric'}, {'real','finite','scalar'}, mfilename, 'psd_fmin_hz');
+validateattributes(psd_fmax_hz, {'numeric'}, {'real','finite','scalar','>',psd_fmin_hz}, mfilename, 'psd_fmax_hz');
+validateattributes(export_dpi, {'numeric'}, {'real','finite','scalar','integer','positive'}, mfilename, 'export_dpi');
+validateattributes(figure_size_px, {'numeric'}, ...
+    {'real','finite','vector','numel',2,'integer','positive'}, mfilename, 'figure_size_px');
+validateattributes(line_width, {'numeric'}, {'real','finite','scalar','positive'}, mfilename, 'line_width');
+validateattributes(progress_every, {'numeric'}, ...
+    {'real','finite','scalar','integer','nonnegative'}, mfilename, 'progress_every');
 
-% Clear output folder contents (delete everything inside, keep folder)
-clear_folder_contents(outDir);
+stagingDir = [outDir, '.partial'];
+backupDir = [outDir, '.previous'];
+assert(is_local_child(baseDir, stagingDir) && is_local_child(baseDir, backupDir), ...
+    'Temporary and backup directories must remain beneath the local Strasbourg repository.');
+recover_interrupted_promotion(outDir, stagingDir, backupDir);
 
 %% ───────────────────────────── LOAD MAT ───────────────────────────────
 fprintf('Loading: %s\n', inMat);
@@ -91,14 +105,44 @@ for d = 1:numel(epochs_pooled)
     E = epochs_pooled(d);
 
     % Basic shape checks
-    assert(ndims(E.data) == 3, 'Dataset %d: expected data as [nCh x nPts x nEp].', d);
+    assert(isnumeric(E.data) && isreal(E.data) && ndims(E.data) <= 3, ...
+        'Dataset %d: data must be a real numeric [nCh x nPts x nEp] array.', d);
+    assert(all(isfinite(E.data(:))), 'Dataset %d: data contain NaN or Inf.', d);
     nCh = size(E.data, 1);
+    nPts = size(E.data, 2);
     nEp = size(E.data, 3);
+    assert(nCh >= 1 && nPts >= 2 && nEp >= 1, ...
+        'Dataset %d: data dimensions must all be non-empty and include at least two time samples.', d);
 
     % Validate channels/eventtype/epoch_index lengths
     assert(iscell(E.channels) && numel(E.channels) == nCh, 'Dataset %d: channels length mismatch.', d);
     assert(iscell(E.eventtype) && numel(E.eventtype) == nEp, 'Dataset %d: eventtype length mismatch.', d);
-    assert(isnumeric(E.epoch_index) && numel(E.epoch_index) == nEp, 'Dataset %d: epoch_index length mismatch.', d);
+    assert(isnumeric(E.epoch_index) && isreal(E.epoch_index) && numel(E.epoch_index) == nEp && ...
+        all(isfinite(E.epoch_index(:))) && all(E.epoch_index(:) == fix(E.epoch_index(:))) && ...
+        numel(unique(double(E.epoch_index(:)))) == nEp, ...
+        'Dataset %d: epoch_index must contain one unique finite integer per epoch.', d);
+
+    channels_here = strings(nCh, 1);
+    for c = 1:nCh
+        channels_here(c) = string(E.channels{c});
+        assert(isscalar(channels_here(c)) && ~ismissing(channels_here(c)) && ...
+            strlength(strtrim(channels_here(c))) > 0, ...
+            'Dataset %d: every channel label must be a nonblank scalar.', d);
+    end
+    assert(numel(unique(lower(strtrim(channels_here)))) == nCh, ...
+        'Dataset %d: channel labels must be unique after trimming, case-insensitively.', d);
+
+    times_here = double(E.times_ms(:));
+    assert(isnumeric(E.times_ms) && isreal(E.times_ms) && numel(times_here) == nPts && ...
+        all(isfinite(times_here)) && all(diff(times_here) > 0), ...
+        'Dataset %d: times_ms must be a finite strictly increasing vector matching data.', d);
+    assert(isnumeric(E.srate) && isreal(E.srate) && isscalar(E.srate) && ...
+        isfinite(E.srate) && E.srate > 0, ...
+        'Dataset %d: srate must be a positive finite numeric scalar.', d);
+    expected_dt_ms = 1000 / double(E.srate);
+    dt_tolerance = max(1e-9, abs(expected_dt_ms) * 1e-6);
+    assert(all(abs(diff(times_here) - expected_dt_ms) <= dt_tolerance), ...
+        'Dataset %d: times_ms spacing is inconsistent with srate.', d);
 
     % Validate Exclude exists + shape exactly [nCh x nEp]
     assert(islogical(E.Exclude), 'Dataset %d: Exclude must be logical.', d);
@@ -111,6 +155,15 @@ for d = 1:numel(epochs_pooled)
     subj = string(E.subjectID);
     sess = string(E.sessionID);
     run  = string(E.runID);
+    identifiers = {subj, 'subjectID'; sess, 'sessionID'; run, 'runID'};
+    for identifier_idx = 1:size(identifiers, 1)
+        identifier_value = identifiers{identifier_idx, 1};
+        assert(isscalar(identifier_value) && ~ismissing(identifier_value) && ...
+            strlength(strtrim(identifier_value)) > 0 && ...
+            strlength(sanitize_alnum(identifier_value)) > 0, ...
+            'Dataset %d: %s must contain at least one alphanumeric character.', ...
+            d, identifiers{identifier_idx, 2});
+    end
 
     % Collect excluded positions
     [c_pos, e_pos] = find(E.Exclude); % returns channel positions, epoch positions
@@ -137,6 +190,8 @@ for d = 1:numel(epochs_pooled)
             eventtype(k) = "";
         else
             eventtype(k) = string(et);
+            assert(isscalar(eventtype(k)) && ~ismissing(eventtype(k)), ...
+                'Dataset %d: every non-empty eventtype must be a nonmissing scalar.', d);
         end
     end
 
@@ -154,9 +209,13 @@ for d = 1:numel(epochs_pooled)
     end
 end
 
+prepare_staging_directory(stagingDir);
+staging_cleanup = onCleanup(@() delete_directory_if_present(stagingDir)); %#ok<NASGU>
+
 if isempty(rows)
+    promote_complete_directory(stagingDir, outDir, backupDir);
     fprintf('Excluded items found: 0\n');
-    fprintf('Output folder cleared/ready: %s\n', outDir);
+    fprintf('Validated empty output folder: %s\n', outDir);
     log_command_window('stop');
     return
 end
@@ -167,12 +226,50 @@ rows = sortrows(rows, {'subjectID','sessionID','runID','epoch_index','channel'})
 fprintf('Excluded items found: %d\n', height(rows));
 fprintf('Saving PNGs to: %s\n', outDir);
 
+%% ─────────────────────── PLAN NAMES BEFORE EXPORT ─────────────────────
+usedNames = containers.Map('KeyType','char', 'ValueType','logical');
+nTotal = height(rows);
+planned_file_names = strings(nTotal, 1);
+planned_titles = strings(nTotal, 1);
+
+for i = 1:nTotal
+    r = rows(i,:);
+
+    subj_value = sanitize_alnum(string(r.subjectID));
+    sess_value = sanitize_alnum(string(r.sessionID));
+    run_value = sanitize_alnum(string(r.runID));
+    chan_value = sanitize_alnum(string(r.channel));
+    epoch_value = sanitize_alnum(string(r.epoch_index));
+    assert(all(strlength([subj_value, sess_value, run_value, chan_value, epoch_value]) > 0), ...
+        'An excluded item has an identifier/channel/epoch value that sanitises to blank.');
+
+    subj = "sub-" + subj_value;
+    sess = "ses-" + sess_value;
+    run = "run-" + run_value;
+    chan = "chan-" + chan_value;
+    epc = "epoch-" + epoch_value;
+    ev = sanitize_alnum(string(r.eventtype));
+    baseName = subj + "_" + sess + "_" + run + "_" + epc + "_" + chan + "_" + ev;
+
+    candidateName = baseName;
+    duplicateNumber = 1;
+    candidateKey = lower(char(candidateName + ".png"));
+    while isKey(usedNames, candidateKey)
+        duplicateNumber = duplicateNumber + 1;
+        candidateName = baseName + "_dup" + string(duplicateNumber);
+        candidateKey = lower(char(candidateName + ".png"));
+    end
+    usedNames(candidateKey) = true;
+
+    planned_file_names(i) = candidateName + ".png";
+    planned_titles(i) = strrep(candidateName, '_', ' | ');
+end
+assert(numel(unique(lower(planned_file_names))) == nTotal, ...
+    'Planned PNG filenames are not unique after deterministic collision handling.');
+
 %% ───────────────────────────── PLOT + EXPORT ──────────────────────────
-% Track filenames to handle collisions after sanitisation
-nameCounts = containers.Map('KeyType','char', 'ValueType','double');
 
 nSaved = 0;
-nTotal = height(rows);
 
 for i = 1:nTotal
     r = rows(i,:);
@@ -188,47 +285,17 @@ for i = 1:nTotal
     y    = double(y(:));
     Fs   = double(E.srate);
 
-    % Build filename components (use exact stored values, sanitised)
-    subj_raw = "sub-" + string(r.subjectID);
-    sess_raw = "ses-" + string(r.sessionID);
-    run_raw  = "run-" + string(r.runID);
-    chan_raw = "chan-" + string(r.channel);
-    ep_raw   = "epoch-" + string(r.epoch_index);
-
-    ev_raw   = string(r.eventtype); % may be empty
-
-    % Sanitise each component: remove non-alphanumeric from the variable part, keep prefix + hyphen.
-    subj = "sub-"   + sanitize_alnum(strip_prefix_value(subj_raw, "sub-"));
-    sess = "ses-"   + sanitize_alnum(strip_prefix_value(sess_raw, "ses-"));
-    run  = "run-"   + sanitize_alnum(strip_prefix_value(run_raw,  "run-"));
-    chan = "chan-"  + sanitize_alnum(strip_prefix_value(chan_raw, "chan-"));
-    epc  = "epoch-" + sanitize_alnum(strip_prefix_value(ep_raw,   "epoch-"));
-    ev   = sanitize_alnum(ev_raw);
-
-    % Assemble base filename (underscore-separated components; final slot is eventtype, may be empty)
-    baseName = subj + "_" + sess + "_" + run + "_" + epc + "_" + chan + "_" + ev;
-
-    % Collision handling: append _dupN (starting at 2) if needed
-    key = char(baseName);
-    if isKey(nameCounts, key)
-        nameCounts(key) = nameCounts(key) + 1;
-        baseName = baseName + "_dup" + string(nameCounts(key));
-    else
-        nameCounts(key) = 1;
-    end
-
-    fileName = baseName + ".png";
-    outPath  = fullfile(outDir, char(fileName));
-
-    % Figure title uses vertical bars, aligned to filename components (no per-subplot titles)
-    titleStr = strrep(char(baseName), '_', ' | ');
+    fileName = planned_file_names(i);
+    outPath  = fullfile(stagingDir, char(fileName));
+    titleStr = char(planned_titles(i));
 
     % Create invisible figure sized in pixels
-    figure( ...
+    fig = figure( ...
         'Visible', 'off', ...
         'Color', 'w', ...
         'Units', 'pixels', ...
         'Position', [100, 100, figure_size_px(1), figure_size_px(2)]);
+    figure_cleanup = onCleanup(@() close_figure_if_present(fig)); %#ok<NASGU>
 
     tlo = tiledlayout(1, 3, 'Padding','compact', 'TileSpacing','compact');
     title(tlo, titleStr, 'Interpreter','none');
@@ -271,8 +338,9 @@ for i = 1:nTotal
     xlim(ax3, [psd_fmin_hz, psd_fmax_hz]);
 
     % Export and close
-    exportgraphics(gcf, outPath, 'Resolution', export_dpi);
-    close(gcf);
+    exportgraphics(fig, outPath, 'Resolution', export_dpi);
+    close(fig);
+    clear figure_cleanup
 
     nSaved = nSaved + 1;
 
@@ -284,6 +352,16 @@ for i = 1:nTotal
     end
 end
 
+staged_entries = dir(stagingDir);
+staged_entries = staged_entries(~ismember({staged_entries.name}, {'.','..'}));
+assert(numel(staged_entries) == nTotal && all(~[staged_entries.isdir]), ...
+    'The staging directory does not contain exactly the planned file batch.');
+assert(isequal(sort(string({staged_entries.name}).'), sort(planned_file_names)), ...
+    'The staged PNG identities do not match the complete planned batch.');
+assert(all([staged_entries.bytes] > 0), 'One or more staged PNGs are empty.');
+
+promote_complete_directory(stagingDir, outDir, backupDir);
+
 %% ───────────────────────────── SUMMARY ────────────────────────────────
 fprintf('Saved PNGs: %d\n', nSaved);
 fprintf('Done.\n');
@@ -291,20 +369,81 @@ fprintf('Done.\n');
 log_command_window('stop');
 
 %% ───────────────────────────── Helpers ────────────────────────────────
-function clear_folder_contents(folderPath)
-% Delete everything inside folderPath (files and subfolders), but not the folder itself.
-d = dir(folderPath);
-for i = 1:numel(d)
-    name = d(i).name;
-    if strcmp(name, '.') || strcmp(name, '..')
-        continue
-    end
-    fullp = fullfile(folderPath, name);
-    if d(i).isdir
-        rmdir(fullp, 's');
+function tf = is_local_child(basePath, targetPath)
+% Resolve existing parent symlinks and require targetPath beneath basePath.
+baseCanonical = string(char(java.io.File(basePath).getCanonicalPath()));
+targetCanonical = string(char(java.io.File(targetPath).getCanonicalPath()));
+tf = startsWith(targetCanonical, baseCanonical + string(filesep));
+end
+
+function recover_interrupted_promotion(finalDir, stagingDir, backupDir)
+% Restore a displaced prior final directory, then remove deterministic staging.
+assert(~isfile(finalDir), 'The final output path is a file, not a directory: %s', finalDir);
+assert(~isfile(stagingDir), 'The staging path is a file, not a directory: %s', stagingDir);
+assert(~isfile(backupDir), 'The backup path is a file, not a directory: %s', backupDir);
+
+if isfolder(backupDir)
+    if isfolder(finalDir)
+        delete_directory_if_present(backupDir);
     else
-        delete(fullp);
+        [ok, msg] = movefile(backupDir, finalDir, 'f');
+        assert(ok, 'Could not restore the prior complete output directory: %s', msg);
     end
+end
+delete_directory_if_present(stagingDir);
+end
+
+function prepare_staging_directory(stagingDir)
+assert(~isfile(stagingDir) && ~isfolder(stagingDir), ...
+    'The staging path must be absent before creation: %s', stagingDir);
+[ok, msg] = mkdir(stagingDir);
+assert(ok, 'Could not create the staging directory: %s', msg);
+end
+
+function delete_directory_if_present(folderPath)
+assert(~isfile(folderPath), 'Refusing to delete a file at a directory-only path: %s', folderPath);
+if isfolder(folderPath)
+    [ok, msg] = rmdir(folderPath, 's');
+    assert(ok, 'Could not remove deterministic local directory %s: %s', folderPath, msg);
+end
+end
+
+function promote_complete_directory(stagingDir, finalDir, backupDir)
+% Replace finalDir only after stagingDir has been built and verified completely.
+assert(isfolder(stagingDir), 'Complete staging directory is absent: %s', stagingDir);
+assert(~isfile(finalDir), 'The final output path is a file, not a directory: %s', finalDir);
+assert(~isfile(backupDir) && ~isfolder(backupDir), ...
+    'The deterministic backup path must be absent before promotion: %s', backupDir);
+
+hadPriorFinal = isfolder(finalDir);
+if hadPriorFinal
+    [ok, msg] = movefile(finalDir, backupDir, 'f');
+    assert(ok, 'Could not preserve the prior complete output directory: %s', msg);
+end
+
+try
+    [ok, msg] = movefile(stagingDir, finalDir, 'f');
+    assert(ok, 'Could not promote the complete staged output directory: %s', msg);
+catch ME
+    if hadPriorFinal && ~isfolder(finalDir) && isfolder(backupDir)
+        [restored, restoreMsg] = movefile(backupDir, finalDir, 'f');
+        if ~restored
+            error('step_7_check_1:PromotionAndRestoreFailed', ...
+                'Promotion failed (%s), and the prior output could not be restored (%s).', ...
+                ME.message, restoreMsg);
+        end
+    end
+    rethrow(ME)
+end
+
+if hadPriorFinal
+    delete_directory_if_present(backupDir);
+end
+end
+
+function close_figure_if_present(fig)
+if isgraphics(fig)
+    close(fig);
 end
 end
 
@@ -316,16 +455,4 @@ if ismissing(s) || strlength(s) == 0
     return
 end
 out = regexprep(s, '[^A-Za-z0-9]', '');
-end
-
-function val = strip_prefix_value(s, prefix)
-% Given s like "ses-01", return the part after prefix ("01").
-% If prefix missing, return s unchanged (best-effort).
-s = string(s);
-prefix = string(prefix);
-if startsWith(s, prefix)
-    val = extractAfter(s, strlength(prefix));
-else
-    val = s;
-end
 end
