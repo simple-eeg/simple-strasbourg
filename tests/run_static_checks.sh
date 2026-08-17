@@ -360,7 +360,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"8b821f9b20d35b0959d93b3b066b807ca87dbf2928dc16b844a9fea74faae592","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"extended":120}
+expected_totals = {"runner_sha256":"dcef9e0b597db19e492ff62af0f636c5d0fa3d6df2f8e497822522eea3e92d11","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()

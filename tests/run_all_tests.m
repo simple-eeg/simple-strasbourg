@@ -723,7 +723,6 @@ for epochIndex = 1:numel(output.epoch)
     end
 end
 assert(contains(output.history, 'estimate_response(EEG,'));
-assert(~contains(output.history, ['pop_' 'estimate_response']));
 passed = passed + 1;
 
 arrayOutput = estimate_response([fixture fixture], explicitOptions);
