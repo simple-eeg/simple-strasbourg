@@ -19,7 +19,7 @@
 %   - Clear all previous results under EEG.epoch(e).NRF before writing.
 %
 % Inputs expected:
-%   - INI: data_lists/nrf_config.ini
+%   - INI: NRFs/nrf_config.ini
 %   - CSV: data/info/epoch_types/epoch_type_summary.csv
 %          columns: Type, early_NRF, noxious_NRF, noxious_preterm_NRF
 %   - EEG list: data_lists/dataset_list.csv
@@ -30,7 +30,7 @@ clear; clc;
 
 %% --- User-configurable paths & settings (edit here) ---
 baseDir         = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
-config_path     = fullfile(baseDir, 'data_lists', 'nrf_config.ini');
+config_path     = fullfile(baseDir, 'NRFs', 'nrf_config.ini');
 epoch_csv       = fullfile(baseDir, 'data', 'info', 'epoch_types', 'epoch_type_summary.csv');
 dataListPath    = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
 functionsFolder = fullfile(baseDir, 'functions');
@@ -38,13 +38,19 @@ functionsFolder = fullfile(baseDir, 'functions');
 % Fixed NRF family names (mapping columns in CSV)
 families = {'early_NRF','noxious_NRF','noxious_preterm_NRF'};
 
-%% --- Initialize SIMPLE/EEGLAB environment ---
-% Ensure your local functions folder is on path (contains NRFUtils.m)
-if exist(functionsFolder, 'dir'); addpath(functionsFolder); end
+%% --- Initialize EEGLAB and repository-local functions ---
+eeglab;
+addpath(functionsFolder, '-begin');
+clear estimate_response jittercorrect NRFUtils;
+rehash;
 
-eeglab; % adds EEGLAB + SIMPLE; SIMPLE puts its NRFs folder on the MATLAB path
-assert(exist('pop_estimate_response','file') == 2, 'pop_estimate_response.m not found on path.');
-assert(exist('NRFUtils','class') == 8, 'NRFUtils.m not found or not on path.');
+requiredLocalFunctions = {'estimate_response', 'jittercorrect', 'NRFUtils'};
+for functionIdx = 1:numel(requiredLocalFunctions)
+    functionName = requiredLocalFunctions{functionIdx};
+    expectedFunction = fullfile(functionsFolder, [functionName, '.m']);
+    assert(strcmp(which(functionName), expectedFunction), ...
+        '%s must resolve to this repository: %s', functionName, expectedFunction);
+end
 
 %% --- Parse & validate INI profiles ---
 profiles = NRFUtils.parseIni(config_path);
@@ -150,7 +156,8 @@ for i = 1:N
     zero_t_ms = -(EEG.xmin) * 1000;  % e.g., EEG.xmin = -1 s -> zero_t_ms = 1000
 
     % --- Build caches once per (profile, channel) using NRFUtils ---
-    [fit_cache, templ_info] = NRFUtils.fitAndCache(EEG, profiles, used_profile_names, labels, zero_t_ms);
+    [fit_cache, templ_info] = NRFUtils.fitAndCache( ...
+        EEG, profiles, used_profile_names, labels, zero_t_ms, baseDir);
 
     % --- Iterate epochs and write only mapped outputs (reusing cache) ---
     fits_done = 0;

@@ -18,7 +18,7 @@
 %   • Output is printed to the Command Window (captured via log_command_window).
 %
 % Requirements
-%   • EEGLAB with SIMPLE installed; 'pop_preproc' must be on the path.
+%   • EEGLAB and this repository's 'preproc.m' must be on the path.
 %   • The helper functions 'delete_unwanted_events.m' and 'add_offset_events.m'
 %     must be on the MATLAB path (e.g., in <baseDir>/functions).
 %   • A CSV at <baseDir>/data_lists/dataset_list.csv with required columns:
@@ -37,14 +37,24 @@ clear; clc;
 %% Project paths and environment setup
 baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 functionsDir = fullfile(baseDir, 'functions');
-if exist(functionsDir, 'dir')
-    addpath(functionsDir);
-end
-
 dataListPath = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
 
 eeglab;
-assert(exist('pop_preproc','file') > 0, 'pop_preproc.m not found on path. Check SIMPLE installation and MATLAB path.');
+
+% Bind this script to the functions in this repository after EEGLAB has
+% finished adding its own folders and plugins to the MATLAB path.
+addpath(functionsDir, '-begin');
+clear preproc delete_unwanted_events add_offset_events;
+rehash;
+
+requiredLocalFunctions = {'preproc', 'delete_unwanted_events', ...
+    'add_offset_events'};
+for functionIdx = 1:numel(requiredLocalFunctions)
+    functionName = requiredLocalFunctions{functionIdx};
+    expectedFunction = fullfile(functionsDir, [functionName, '.m']);
+    assert(strcmp(which(functionName), expectedFunction), ...
+        '%s must resolve to this repository: %s', functionName, expectedFunction);
+end
 
 %% User-editable preprocessing options
 PreprocOptions = struct();
@@ -169,7 +179,6 @@ for idx = 1:totalToDo
         optsA.linefilter  = logical(PreprocOptions.linefilter);
         optsA.linefreq    = PreprocOptions.linefreq;
         optsA.cleanline   = logical(PreprocOptions.cleanline);
-        optsA.offsetevents= false;
         optsA.epoching    = false;
         optsA.baseadjust  = false;
 
@@ -207,7 +216,7 @@ for idx = 1:totalToDo
             end
         end
 
-        EEG_clean = pop_preproc(EEG, optsA);
+        EEG_clean = preproc(EEG, optsA);
         % -------------------------------------------------------------------------------------------------------
 
 
@@ -308,14 +317,13 @@ for idx = 1:totalToDo
             optsD.linefilter   = false;
             optsD.linefreq     = [];
             optsD.cleanline    = false;
-            optsD.offsetevents = false;
             optsD.epoching     = true;
             optsD.epochevents  = epNorm;
             optsD.baseadjust   = logical(PreprocOptions.baseadjust);
             optsD.epochlimpre  = eff_pre_ms;
             optsD.epochlimpost = eff_post_ms;
 
-            EEG_pre = pop_preproc(EEG_clean, optsD);
+            EEG_pre = preproc(EEG_clean, optsD);
 
             % If epoching produced zero epochs, skip saving and move on.
             if ~isfield(EEG_pre,'epoch') || isempty(EEG_pre.epoch)
@@ -365,10 +373,10 @@ for idx = 1:totalToDo
         end
 
         % Build a scalar provenance struct via dot-assignments (robust to non-scalars)
-        preproc = struct();
-        preproc.applied           = true;
-        preproc.timestamp         = dtISO;
-        preproc.options_requested = PreprocOptions;
+        preprocProvenance = struct();
+        preprocProvenance.applied           = true;
+        preprocProvenance.timestamp         = dtISO;
+        preprocProvenance.options_requested = PreprocOptions;
 
         eff = struct();
         % Block A (continuous cleaning)
@@ -416,8 +424,8 @@ for idx = 1:totalToDo
         eff.final_epoch_ms      = final_epoch_ms;
 
         % Attach effective options into provenance and store on EEG
-        preproc.options_effective = eff;
-        EEG_pre.etc.simple.preproc = preproc;
+        preprocProvenance.options_effective = eff;
+        EEG_pre.etc.simple.preproc = preprocProvenance;
         % -------------------------------------------------------------------------------------------------------
 
         % Save the processed dataset.

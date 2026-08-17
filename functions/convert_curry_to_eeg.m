@@ -8,7 +8,7 @@ function [EEG, ok] = convert_curry_to_eeg(srcDir, mainFile, sidecars, annotation
 %       1) call loadcurry
 %       2) capture existing boundary event latencies
 %       3) rebuild events from CEF/CEO (our authoritative source for codes/annotations)
-%       4) append boundary events unchanged (type='boundary'; no urtype; annotation='')
+%       4) append boundary events with preserved latencies (type='boundary'; urtype=''; annotation='')
 %       5) sort & consistency check
 %
 % Inputs:

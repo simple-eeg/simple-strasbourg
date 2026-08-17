@@ -8,7 +8,7 @@ function log_command_window(action)
 %   log_command_window('stop');
 %
 % Behavior:
-%   - 'start': derives <project_root>/logs/<caller_script>.log and replaces it.
+%   - 'start': derives <project_root>/data/logs/<caller_script>.log and replaces it.
 %              silently closes any previous diary, then starts a fresh one.
 %   - 'stop' : turns diary off (idempotent; silent if already off).
 %
@@ -69,8 +69,8 @@ if ~strcmpi(leaf, 'scripts')
     end
 end
 
-% -------------------- 4) Ensure logs/ exists -------------------------
-logsDir = fullfile(projectRoot, 'logs');
+% -------------------- 4) Ensure data/logs/ exists --------------------
+logsDir = fullfile(projectRoot, 'data', 'logs');
 if ~exist(logsDir, 'dir')
     ok = mkdir(logsDir);
     if ~ok

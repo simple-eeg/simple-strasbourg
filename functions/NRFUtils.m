@@ -6,13 +6,95 @@ classdef NRFUtils
     %   profiles = NRFUtils.parseIni(config_path)
     %   profiles = NRFUtils.validateProfiles(profiles)
     %   map      = NRFUtils.readEpochTypeMapping(epoch_csv, profiles, families)
-    %   [fit_cache, templ_info] = NRFUtils.fitAndCache(EEG, profiles, used_profile_names, labels, zero_t_ms)
+    %   [logicalName, templateFile] = NRFUtils.resolveTemplateFile(templateReference, repositoryRoot)
+    %   [fit_cache, templ_info] = NRFUtils.fitAndCache(EEG, profiles, used_profile_names, labels, zero_t_ms, repositoryRoot)
     %
     % Notes:
     % - No user paths are hard-coded here; everything is passed in.
     % - Methods are stateless and throw informative errors on invalid inputs.
 
     methods (Static)
+
+        function [logicalName, templateFile] = resolveTemplateFile(templateReference, repositoryRoot)
+            % Resolve a bundled logical basename or an explicit MAT-file path.
+            % Logical names are bound only to this repository's NRFs folder;
+            % MATLAB path precedence is deliberately ignored.
+            if isstring(templateReference)
+                if ~isscalar(templateReference) || ismissing(templateReference)
+                    error('SIMPLE:NRFUtils:InvalidTemplateReference', ...
+                        'NRFName must be a character vector or string scalar.');
+                end
+                templateReference = char(templateReference);
+            end
+            if ~ischar(templateReference) || size(templateReference, 1) ~= 1 || ...
+                    isempty(strtrim(templateReference))
+                error('SIMPLE:NRFUtils:InvalidTemplateReference', ...
+                    'NRFName must be a non-empty character vector or string scalar.');
+            end
+            if isstring(repositoryRoot)
+                if ~isscalar(repositoryRoot) || ismissing(repositoryRoot)
+                    error('SIMPLE:NRFUtils:InvalidRepositoryRoot', ...
+                        'The repository root must be one nonmissing text scalar.');
+                end
+                repositoryRoot = char(repositoryRoot);
+            end
+            if ~ischar(repositoryRoot) || size(repositoryRoot, 1) ~= 1 || ...
+                    ~isfolder(repositoryRoot)
+                error('SIMPLE:NRFUtils:InvalidRepositoryRoot', ...
+                    'The repository root must identify an existing folder.');
+            end
+
+            templateReference = strtrim(templateReference);
+            isExplicit = contains(templateReference, '/') || ...
+                contains(templateReference, '\');
+            templateReference = strrep(templateReference, '\', filesep);
+            templateReference = strrep(templateReference, '/', filesep);
+            [~, baseName, extension] = fileparts(templateReference);
+
+            if isExplicit
+                if isempty(extension)
+                    candidate = [templateReference, '.mat'];
+                    [~, baseName] = fileparts(templateReference);
+                elseif ~strcmpi(extension, '.mat')
+                    error('SIMPLE:NRFUtils:InvalidTemplateReference', ...
+                        'An explicit NRF template path must name a .mat file.');
+                else
+                    candidate = templateReference;
+                end
+                logicalName = baseName;
+            else
+                if isempty(extension)
+                    logicalName = templateReference;
+                elseif strcmpi(extension, '.mat')
+                    logicalName = baseName;
+                else
+                    error('SIMPLE:NRFUtils:InvalidTemplateReference', ...
+                        'A logical NRF template name may only use the .mat extension.');
+                end
+                templatesRoot = fullfile(repositoryRoot, 'NRFs');
+                candidate = fullfile(templatesRoot, ...
+                    [logicalName, '.mat']);
+            end
+
+            if ~isvarname(logicalName)
+                error('SIMPLE:NRFUtils:InvalidTemplateName', ...
+                    'NRF template basename "%s" is not a valid MATLAB field name.', ...
+                    logicalName);
+            end
+            if ~isfile(candidate)
+                error('NRF %s.mat not found.', logicalName)
+            end
+
+            templateFile = char(java.io.File(candidate).getCanonicalPath());
+            if ~isExplicit
+                canonicalTemplatesRoot = char(java.io.File(templatesRoot).getCanonicalPath());
+                if ~strcmp(fileparts(templateFile), canonicalTemplatesRoot)
+                    error('SIMPLE:NRFUtils:NonLocalLogicalTemplate', ...
+                        'Logical NRF template "%s" did not resolve inside the repository NRFs folder.', ...
+                        logicalName);
+                end
+            end
+        end
 
         function profiles = parseIni(config_path)
             % Parse a minimal INI with:
@@ -102,14 +184,44 @@ classdef NRFUtils
                 if isempty(p.NRFName) || ~ischar(p.NRFName)
                     error('Profile "%s": NRFName must be a non-empty string.', nm);
                 end
+                [nrfFolder, ~, nrfExtension] = fileparts(p.NRFName);
+                if ~isempty(nrfFolder) || ~isempty(nrfExtension) || ...
+                        contains(p.NRFName, '/') || contains(p.NRFName, '\') || ...
+                        ~isvarname(p.NRFName)
+                    error(['Profile "%s": NRFName must be a logical basename ' ...
+                        'without a path or extension.'], nm);
+                end
                 if isempty(p.channel) || ~iscell(p.channel)
                     error('Profile "%s": channel must be a comma-separated list.', nm);
                 end
-                if ~isscalar(p.baselineLength) || ~isfinite(p.baselineLength)
-                    error('Profile "%s": baselineLength must be a numeric scalar.', nm);
+                if ~isnumeric(p.baselineLength) || ~isreal(p.baselineLength) || ...
+                        ~isscalar(p.baselineLength) || ~isfinite(p.baselineLength) || ...
+                        p.baselineLength < 0
+                    error(['Profile "%s": baselineLength must be a finite ' ...
+                        'nonnegative real numeric scalar.'], nm);
                 end
-                if ~isscalar(p.jitter) || ~isfinite(p.jitter)
-                    error('Profile "%s": jitter must be a numeric scalar.', nm);
+                if ~isnumeric(p.jitter) || ~isreal(p.jitter) || ...
+                        ~isscalar(p.jitter) || ~isfinite(p.jitter) || ...
+                        p.jitter < 0
+                    error(['Profile "%s": jitter must be a finite ' ...
+                        'nonnegative real numeric scalar.'], nm);
+                end
+
+                preWellFormed = isnumeric(p.projectionTimes_pre) && ...
+                    isreal(p.projectionTimes_pre) && ...
+                    (isempty(p.projectionTimes_pre) || ...
+                    (isscalar(p.projectionTimes_pre) && ...
+                    isfinite(p.projectionTimes_pre)));
+                postWellFormed = isnumeric(p.projectionTimes_post) && ...
+                    isreal(p.projectionTimes_post) && ...
+                    (isempty(p.projectionTimes_post) || ...
+                    (isscalar(p.projectionTimes_post) && ...
+                    isfinite(p.projectionTimes_post)));
+                if ~preWellFormed
+                    error('Profile "%s": projectionTimes_pre must be a numeric scalar or empty.', nm);
+                end
+                if ~postWellFormed
+                    error('Profile "%s": projectionTimes_post must be a numeric scalar or empty.', nm);
                 end
 
                 hasPre  = ~isempty(p.projectionTimes_pre);
@@ -118,18 +230,12 @@ classdef NRFUtils
                     error('Profile "%s": exactly one of projectionTimes_pre or projectionTimes_post must be a scalar (the other empty).', nm);
                 end
                 if hasPre
-                    if ~isscalar(p.projectionTimes_pre) || ~isfinite(p.projectionTimes_pre)
-                        error('Profile "%s": projectionTimes_pre must be a numeric scalar or empty.', nm);
-                    end
                     if ~(p.projectionTimes_pre <= 0)
                         error('Profile "%s": projectionTimes_pre must be ≤ 0 (ms).', nm);
                     end
                     p.proj_scalar = p.projectionTimes_pre;
                 end
                 if hasPost
-                    if ~isscalar(p.projectionTimes_post) || ~isfinite(p.projectionTimes_post)
-                        error('Profile "%s": projectionTimes_post must be a numeric scalar or empty.', nm);
-                    end
                     if ~(p.projectionTimes_post >= 0)
                         error('Profile "%s": projectionTimes_post must be ≥ 0 (ms).', nm);
                     end
@@ -187,7 +293,7 @@ classdef NRFUtils
             end
         end
 
-        function [fit_cache, templ_info] = fitAndCache(EEG, profiles, used_profile_names, labels, zero_t_ms)
+        function [fit_cache, templ_info] = fitAndCache(EEG, profiles, used_profile_names, labels, zero_t_ms, repositoryRoot)
             % Build per-dataset caches once per (profile, channel).
             %
             % Inputs:
@@ -208,33 +314,60 @@ classdef NRFUtils
                 pname = used_profile_names{up};
                 p = profiles.(pname);
 
-                % Template info (load once)
-                if ~isfield(templ_info, p.NRFName)
-                    S = load([p.NRFName, '.mat']); % must contain NRF and fs; on MATLAB path
-                    if ~isfield(S, 'NRF') || ~isfield(S, 'fs')
-                        error('NRF file %s.mat must contain variables NRF and fs.', p.NRFName);
-                    end
-                    templ_info.(p.NRFName).fs = S.fs;
-                    templ_info.(p.NRFName).duration_ms = numel(S.NRF)/S.fs*1000;
+                % Resolve and load each template independently of MATLAB path.
+                [logicalName, templateFile] = NRFUtils.resolveTemplateFile( ...
+                    p.NRFName, repositoryRoot);
+                if ~strcmp(logicalName, p.NRFName)
+                    error('Profile "%s": NRFName must be a logical basename.', pname);
                 end
-                if templ_info.(p.NRFName).fs ~= EEG.srate
+                if ~isfield(templ_info, logicalName)
+                    S = load(templateFile);
+                    if ~isfield(S, 'NRF') || ~isfield(S, 'fs')
+                        error('NRF file %s.mat must contain variables NRF and fs.', logicalName);
+                    end
+                    if ~isnumeric(S.NRF) || ~isreal(S.NRF) || ...
+                            ~isvector(S.NRF) || numel(S.NRF) < 2 || ...
+                            ~all(isfinite(S.NRF(:)))
+                        error(['NRF file %s.mat must contain a finite real ' ...
+                            'numeric NRF vector with at least two samples.'], logicalName);
+                    end
+                    if ~isnumeric(S.fs) || ~isreal(S.fs) || ...
+                            ~isscalar(S.fs) || ~isfinite(S.fs) || S.fs <= 0
+                        error(['NRF file %s.mat must contain a finite positive ' ...
+                            'numeric fs scalar.'], logicalName);
+                    end
+                    templ_info.(logicalName).file = templateFile;
+                    templ_info.(logicalName).fs = S.fs;
+                    templ_info.(logicalName).duration_ms = numel(S.NRF)/S.fs*1000;
+                elseif ~strcmp(templ_info.(logicalName).file, templateFile)
+                    error(['Multiple NRF template paths use the same logical ' ...
+                        'name "%s" in one extraction request.'], logicalName);
+                end
+                dataSamplingRate = double(EEG.srate);
+                templateSamplingRate = double(templ_info.(logicalName).fs);
+                if templateSamplingRate ~= dataSamplingRate
                     error('Sampling-rate mismatch for %s: NRF fs=%g, EEG.srate=%g', ...
-                        p.NRFName, templ_info.(p.NRFName).fs, EEG.srate);
+                        logicalName, templ_info.(logicalName).fs, EEG.srate);
                 end
 
                 % Runtime checks tied to dataset/sample rate (once per profile)
                 start_ms     = p.proj_scalar;           % scalar (pre ≤ 0 or post ≥ 0)
                 abs_start_ms = zero_t_ms + start_ms;
-                if abs_start_ms < p.jitter
-                    error(['Profile "%s": abs_start_ms (zero_t + start = %.3f ms) ', ...
-                        'must be >= jitter (%.3f ms). Consider increasing pre-stimulus window or reducing jitter.'], ...
-                        pname, abs_start_ms, p.jitter);
-                end
-                if ~NRFUtils.isIndexInteger(abs_start_ms, EEG.srate)
-                    step_ms = 1000/EEG.srate;
+                if ~NRFUtils.isIndexInteger(abs_start_ms, dataSamplingRate)
+                    step_ms = 1000/dataSamplingRate;
                     error(['Profile "%s": abs_start_ms = %.3f ms is not aligned to the sample grid. ', ...
                         'At %.0f Hz, valid starts are multiples of %.3f ms.'], ...
-                        pname, abs_start_ms, EEG.srate, step_ms);
+                        pname, abs_start_ms, dataSamplingRate, step_ms);
+                end
+                startSample = round(abs_start_ms * dataSamplingRate / 1000);
+                abs_start_ms = startSample * 1000 / dataSamplingRate;
+                searchStartIndex = ceil((abs_start_ms - double(p.jitter)) / ...
+                    1000 * dataSamplingRate) + 1;
+                if searchStartIndex < 1
+                    error(['Profile "%s": abs_start_ms (zero_t + start = %.3f ms) ', ...
+                        'does not leave enough data for jitter %.3f ms. ' ...
+                        'Consider increasing the pre-stimulus window or reducing jitter.'], ...
+                        pname, abs_start_ms, p.jitter);
                 end
 
                 % Channels present for this profile
@@ -262,14 +395,14 @@ classdef NRFUtils
                     end
 
                     opt = struct( ...
-                        'NRFName',              p.NRFName, ...
+                        'NRFName',              templateFile, ...
                         'baselineLength',       p.baselineLength, ...
                         'jitter',               p.jitter, ...
                         'channel',              ch, ...
                         'projectionTimes_pre',  p.projectionTimes_pre, ...
                         'projectionTimes_post', p.projectionTimes_post);
 
-                    EEG_fit = pop_estimate_response(EEG, opt);   % computes for ALL epochs at this channel
+                    EEG_fit = estimate_response(EEG, opt);   % computes for ALL epochs at this channel
                     fit_cache.(pname).(ch) = EEG_fit;
                 end
             end

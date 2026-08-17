@@ -135,16 +135,16 @@ end
 % Guarantee scalar struct for dynamic fieldnames.
 removed_by_label = struct();
 assert(isscalar(removed_by_label), 'Internal: removed_by_label must be scalar.');
+report_keys = i_unique_report_keys(labels_lc);
 if nDel > 0
     removed_types_lc = types_lc(delMask);
-    u = unique(labels_lc); % only report against requested labels
-    for i = 1:numel(u)
-        key = u{i};
-        removed_by_label.(i_safe_fieldname(key)) = sum(strcmp(removed_types_lc, key));
+    for i = 1:numel(labels_lc)
+        removed_by_label.(report_keys{i}) = ...
+            sum(strcmp(removed_types_lc, labels_lc{i}));
     end
 else
     for i = 1:numel(labels_lc)
-        removed_by_label.(i_safe_fieldname(labels_lc{i})) = 0;
+        removed_by_label.(report_keys{i}) = 0;
     end
 end
 
@@ -204,5 +204,32 @@ function f = i_safe_fieldname(key)
 f = regexprep(key, '[^a-zA-Z0-9_]', '_');
 if isempty(f)
     f = 'x';
+elseif ~isletter(f(1))
+    f = ['x', f];
+end
+f = f(1:min(numel(f), namelengthmax));
+if ~isvarname(f)
+    f = ['x_', f];
+    f = f(1:min(numel(f), namelengthmax));
+end
+end
+
+function keys = i_unique_report_keys(labels)
+% Make deterministic, valid and collision-free report fields while retaining
+% the readable key whenever its sanitised form is already unique.
+keys = cell(size(labels));
+used = {};
+for idx = 1:numel(labels)
+    base = i_safe_fieldname(labels{idx});
+    candidate = base;
+    suffix_number = 2;
+    while any(strcmp(used, candidate))
+        suffix = sprintf('_%d', suffix_number);
+        keep = namelengthmax - numel(suffix);
+        candidate = [base(1:min(numel(base), keep)), suffix];
+        suffix_number = suffix_number + 1;
+    end
+    keys{idx} = candidate;
+    used{end+1} = candidate; %#ok<AGROW>
 end
 end

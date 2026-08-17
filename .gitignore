@@ -107,10 +107,11 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Project data directories (top-level only)
-/data/
-/logs/
+# Local data and logs. Keep only the tracked empty data placeholder.
+/data/*
+!/data/.gitkeep
+/data/logs/
 
-# Local data list files
-/data_lists/dataset_list.csv
-/data_lists/dataset_list_prelim.xlsx
+# Local data-list spreadsheets. Keep the tracked empty folder placeholder.
+/data_lists/**/*.csv
+/data_lists/**/*.xlsx

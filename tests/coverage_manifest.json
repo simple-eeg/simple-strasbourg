@@ -1,0 +1,1861 @@
+{
+  "schema": "simple-repository-coverage-v1",
+  "repository": "simple-strasbourg",
+  "baseline": 1,
+  "comparison_policy": {
+    "exact_behaviour": "strict isequaln",
+    "absolute_tolerance": 0,
+    "relative_tolerance": 0
+  },
+  "expected_runtime_totals": {
+    "runner_sha256": "8b821f9b20d35b0959d93b3b066b807ca87dbf2928dc16b844a9fea74faae592",
+    "preproc": 30,
+    "response": 17,
+    "jitter": 11,
+    "qc": 284,
+    "clean_contract": 18,
+    "extended": 120
+  },
+  "test_catalog": [
+    {
+      "id": "matlab.preproc.oracle",
+      "kind": "matlab-oracle",
+      "source": "tests/fixtures/simple_scientific_oracle_v1.mat",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_preproc_oracles",
+      "expected_pass_count": 30,
+      "cases": [
+        "no_arguments",
+        "no_op",
+        "default_fill",
+        "reref_all",
+        "reref_partial",
+        "reref_none",
+        "resample_changed",
+        "resample_equal",
+        "filter_empty",
+        "filter_high_only",
+        "filter_low_only",
+        "filter_both",
+        "filter_empty_command",
+        "line_notch_vector",
+        "line_all_invalid",
+        "cleanline_success",
+        "cleanline_empty_command",
+        "cleanline_undefined_fallback",
+        "cleanline_other_error",
+        "epoch_single_label",
+        "epoch_multiple_labels",
+        "epoch_with_baseline",
+        "epoch_empty_command",
+        "baseline_other_error",
+        "epoch_no_epochs",
+        "epoch_missing_event_list",
+        "epoch_other_error",
+        "multi_dataset",
+        "empty_data",
+        "options_required"
+      ]
+    },
+    {
+      "id": "matlab.response.oracle",
+      "kind": "matlab-oracle",
+      "source": "tests/fixtures/simple_scientific_oracle_v1.mat",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_response_oracles",
+      "expected_pass_count": 17,
+      "cases": [
+        "early_NRF_500Hz_post",
+        "early_NRF_500Hz_pre",
+        "early_NRF_2000Hz_post",
+        "early_NRF_2000Hz_pre",
+        "noxious_NRF_500Hz_post",
+        "noxious_NRF_500Hz_pre",
+        "noxious_NRF_2000Hz_post",
+        "noxious_NRF_2000Hz_pre",
+        "noxious_preterm_NRF_500Hz_post",
+        "noxious_preterm_NRF_500Hz_pre",
+        "noxious_preterm_NRF_2000Hz_post",
+        "noxious_preterm_NRF_2000Hz_pre",
+        "insufficient_epochs",
+        "no_negative_baseline",
+        "template_rate_mismatch",
+        "options_required",
+        "multi_dataset"
+      ]
+    },
+    {
+      "id": "matlab.jitter.oracle",
+      "kind": "matlab-oracle",
+      "source": "tests/fixtures/simple_scientific_oracle_v1.mat",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_jitter_oracles",
+      "expected_pass_count": 11,
+      "cases": [
+        "known_positive_shift",
+        "known_negative_shift",
+        "finite_tie",
+        "flat_all_invalid",
+        "exact_upper_boundary",
+        "column_input",
+        "zero_jitter",
+        "non_grid_jitter",
+        "rate_mismatch",
+        "upper_out_of_bounds",
+        "lower_out_of_bounds"
+      ]
+    },
+    {
+      "id": "matlab.qc.coordinator.oracle",
+      "kind": "matlab-oracle",
+      "source": "tests/fixtures/simple_scientific_oracle_v1.mat",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_qc_oracles",
+      "expected_pass_count": 9,
+      "cases": [
+        "finite_500_odd",
+        "finite_2000_even",
+        "mixed_edges",
+        "fallback_times",
+        "time_vector_mismatch",
+        "one_epoch",
+        "multi_dataset",
+        "unepoched",
+        "missing_fallback_metadata"
+      ]
+    },
+    {
+      "id": "matlab.qc.direct.oracle",
+      "kind": "matlab-oracle-matrix",
+      "source": "tests/fixtures/simple_scientific_oracle_v1.mat",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_qc_oracles",
+      "expected_pass_count": 275,
+      "calculators": [
+        "calc_maxAbsEpoch",
+        "calc_maxAbsBaseline",
+        "calc_maxAbsPost",
+        "calc_sdEpoch",
+        "calc_invSdEpoch",
+        "calc_MeanAbsDiffNorm",
+        "calc_MaxAbsDiffNorm",
+        "calc_RobustSlopeNorm",
+        "calc_AutoCorrLag1Pos",
+        "calc_AutoCorrLag1Neg",
+        "calc_KatzFDNorm"
+      ],
+      "cases": [
+        "finite_row",
+        "finite_column",
+        "finite_fs_2000",
+        "empty",
+        "length_1",
+        "length_9",
+        "length_10",
+        "flat_zero",
+        "flat_nonzero",
+        "near_flat",
+        "all_nonfinite",
+        "mixed_nonfinite",
+        "no_baseline_samples",
+        "no_post_samples",
+        "baseline_all_nonfinite",
+        "post_all_nonfinite",
+        "time_mismatch",
+        "constant_time",
+        "nonfinite_time_9_pairs",
+        "nonfinite_time_11_pairs",
+        "zero_time_boundary",
+        "perfect_positive_lag",
+        "perfect_negative_lag",
+        "zero_mad_outlier",
+        "single_inputs"
+      ]
+    },
+    {
+      "id": "matlab.preproc.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_preproc_extended_tests",
+      "expected_pass_count": 1,
+      "cases": [
+        "empty_eeg_array"
+      ]
+    },
+    {
+      "id": "matlab.events.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_event_contract_tests",
+      "expected_pass_count": 31,
+      "cases": [
+        "add_no_event",
+        "add_no_source",
+        "add_multi_source_missing_existing_target_fields",
+        "default_skip_positive_oob",
+        "allow_positive_oob_exact_105",
+        "allow_negative_oob_exact_minus5",
+        "invalid_policy_oob",
+        "invalid_policy_in_bounds",
+        "epoched_allow_oob_rejected",
+        "epoched_skip_oob",
+        "invalid_srate_zero",
+        "invalid_srate_char",
+        "invalid_srate_complex",
+        "invalid_srate_logical",
+        "invalid_offset_inf",
+        "invalid_offset_char",
+        "invalid_offset_complex",
+        "invalid_offset_logical",
+        "type_list_mismatch",
+        "numeric_target_report_x7",
+        "report_key_collision_unique",
+        "keyword_report_key",
+        "duplicate_source_conflicting_target",
+        "shared_target_aggregation",
+        "integer_class_srate_offset_equivalence",
+        "delete_no_event_default",
+        "delete_case_insensitive_string_numeric_x7_exact",
+        "delete_report_key_collision_unique",
+        "delete_keyword_report_key",
+        "delete_no_match",
+        "delete_invalid_label_list_noop"
+      ]
+    },
+    {
+      "id": "matlab.response.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_response_semantic_tests",
+      "expected_pass_count": 23,
+      "cases": [
+        "trials_independently_insufficient",
+        "epoch_metadata_independently_insufficient",
+        "partial_defaults_alt_channel",
+        "all_epochs_exact_schema_and_history",
+        "eeg_array_dispatch",
+        "off_grid_post",
+        "off_grid_pre",
+        "upper_response_bound",
+        "lower_response_bound",
+        "invalid_sampling_rate",
+        "invalid_time_origin",
+        "invalid_jitter_negative",
+        "invalid_jitter_nan",
+        "invalid_jitter_logical",
+        "invalid_baseline_negative",
+        "invalid_baseline_inf",
+        "invalid_baseline_logical",
+        "invalid_channel_empty",
+        "invalid_channel_nested_cell",
+        "invalid_channel_nonscalar_string",
+        "scalar_string_channel_equivalence",
+        "integer_class_srate_equivalence",
+        "near_grid_canonical_warning_free_equality"
+      ]
+    },
+    {
+      "id": "matlab.resolver.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_resolver_and_template_tests",
+      "expected_pass_count": 17,
+      "cases": [
+        "logical_char",
+        "logical_string",
+        "logical_mat_suffix",
+        "explicit_path",
+        "explicit_extensionless_path",
+        "invalid_reference_empty",
+        "invalid_reference_nonscalar_string",
+        "invalid_reference_numeric",
+        "invalid_reference_extension",
+        "invalid_reference_basename",
+        "missing_logical_template",
+        "invalid_repository_root",
+        "missing_nrf_variable",
+        "missing_fs_variable",
+        "nonfinite_nrf",
+        "invalid_fs",
+        "wrong_rate"
+      ]
+    },
+    {
+      "id": "matlab.config_cache.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_config_and_cache_tests",
+      "expected_pass_count": 17,
+      "cases": [
+        "repository_ini_profile_set",
+        "empty_ini",
+        "unknown_ini_key",
+        "nonnumeric_ini_scalar",
+        "ini_line_without_equals",
+        "missing_ini",
+        "path_valued_profile_rejected",
+        "both_projection_sides_rejected",
+        "empty_channel_rejected",
+        "negative_baseline_rejected",
+        "negative_jitter_rejected",
+        "duplicate_profile_cache",
+        "missing_channel_cache",
+        "off_grid_cache_start",
+        "jitter_bound_cache_start",
+        "cache_rate_mismatch",
+        "fractional_jitter_exact_lower_edge"
+      ]
+    },
+    {
+      "id": "matlab.overlay.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_overlay_tests",
+      "expected_pass_count": 6,
+      "cases": [
+        "logical_route_provenance_support_shift",
+        "explicit_route_exact_equality",
+        "hostile_ambient_shadow",
+        "lower_support_bound",
+        "nonuniform_sample_grid",
+        "template_rate_mismatch"
+      ]
+    },
+    {
+      "id": "matlab.jitter.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_jitter_semantic_tests",
+      "expected_pass_count": 8,
+      "cases": [
+        "known_positive_shift_semantics",
+        "known_negative_shift_semantics",
+        "finite_tie_semantics",
+        "flat_all_invalid_semantics",
+        "exact_upper_boundary_semantics",
+        "column_input_semantics",
+        "zero_jitter_semantics",
+        "non_grid_jitter_semantics"
+      ]
+    },
+    {
+      "id": "matlab.qc.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_qc_semantic_tests",
+      "expected_pass_count": 3,
+      "cases": [
+        "complete_overwrite_schema",
+        "array_exact_stored_retrieved_semantics",
+        "fallback_times"
+      ]
+    },
+    {
+      "id": "matlab.diagnostics.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_diagnostic_wrapper_tests",
+      "expected_pass_count": 2,
+      "cases": [
+        "success_console_output_state_restoration",
+        "error_propagation_state_restoration"
+      ]
+    },
+    {
+      "id": "matlab.dependencies.extended",
+      "kind": "matlab-system-boundary",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_dependency_boundary_tests",
+      "expected_pass_count": 11,
+      "cases": [
+        "present_fgls",
+        "present_robustfit",
+        "present_corr",
+        "present_eeg_checkset",
+        "present_pop_select",
+        "present_pop_rmbase",
+        "present_pop_cleanline",
+        "missing_fgls_propagates",
+        "missing_robustfit_propagates",
+        "missing_corr_propagates",
+        "missing_eeglab_propagates"
+      ]
+    },
+    {
+      "id": "matlab.logger.extended",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_isolated_logger_test",
+      "expected_pass_count": 1,
+      "cases": [
+        "temp_project_data_logs_replace_token_idempotent_stop"
+      ]
+    },
+    {
+      "id": "matlab.clean_api",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_all_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_clean_contract_tests",
+      "expected_pass_count": 18,
+      "cases": [
+        "clean_defaults",
+        "zero_pre",
+        "zero_post",
+        "projection_both_empty",
+        "projection_both_supplied",
+        "projection_pre_vector",
+        "projection_post_vector",
+        "projection_positive_pre",
+        "projection_negative_post",
+        "projection_pre_nan",
+        "projection_post_inf",
+        "projection_pre_complex",
+        "projection_pre_logical",
+        "projection_pre_text",
+        "logical_explicit_equality",
+        "ambient_shadow",
+        "unsupported_argument_count",
+        "repository_public_entrypoints"
+      ]
+    },
+    {
+      "id": "static.manifest",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.manifest"
+    },
+    {
+      "id": "static.repository.function_inventory",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.function_inventory"
+    },
+    {
+      "id": "static.repository.template_inventory",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.template_inventory"
+    },
+    {
+      "id": "static.repository.current_surface",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.current_surface"
+    },
+    {
+      "id": "static.git.hypothetical_ignore",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.git.hypothetical_ignore"
+    },
+    {
+      "id": "static.git.real_ignore",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.git.real_ignore"
+    },
+    {
+      "id": "static.git.fresh_clone",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.git.fresh_clone"
+    },
+    {
+      "id": "static.repository.logs",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.logs"
+    },
+    {
+      "id": "static.repository.viewer_qc_example",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.viewer_qc_example"
+    },
+    {
+      "id": "static.callers.step3",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.callers.step3"
+    },
+    {
+      "id": "static.callers.step5_4",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.callers.step5_4"
+    },
+    {
+      "id": "static.callers.step7_2",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.callers.step7_2"
+    },
+    {
+      "id": "static.callers.step7_3",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.callers.step7_3"
+    },
+    {
+      "id": "static.repository.strasbourg_contract",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.strasbourg_contract"
+    },
+    {
+      "id": "static.repository.unintended_files",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.unintended_files"
+    },
+    {
+      "id": "static.repository.readme",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.readme"
+    },
+    {
+      "id": "static.repository.root_shape",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.root_shape"
+    },
+    {
+      "id": "static.git.diff_check",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.git.diff_check"
+    },
+    {
+      "id": "static.repository.config_location",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.config_location"
+    },
+    {
+      "id": "static.repository.path_precedence",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.path_precedence"
+    }
+  ],
+  "coverage": [
+    {
+      "id": "BASE-PRE-001",
+      "requirement_key": "prep_inputs",
+      "surface": "preproc",
+      "requirement": "No-argument and missing-options contracts.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_arguments",
+            "options_required"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-002",
+      "requirement_key": "prep_defaults",
+      "surface": "preproc",
+      "requirement": "Empty options receive the defined defaults and no-operation remains stable.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "default_fill",
+            "no_op"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-003",
+      "requirement_key": "prep_empty_data",
+      "surface": "preproc",
+      "requirement": "Empty EEG data contract.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "empty_data"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-004",
+      "requirement_key": "prep_empty_array",
+      "surface": "preproc",
+      "requirement": "Empty EEG struct-array contract.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.extended",
+          "cases": [
+            "empty_eeg_array"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-005",
+      "requirement_key": "prep_multi_array",
+      "surface": "preproc",
+      "requirement": "Multidataset dispatch.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "multi_dataset"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-001",
+      "requirement_key": "offset_no_event",
+      "surface": "add_offset_events",
+      "requirement": "No event field exits unchanged with a zero report.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "add_no_event"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-002",
+      "requirement_key": "offset_no_source",
+      "surface": "add_offset_events",
+      "requirement": "No matching source is reported without mutation.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "add_no_source"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-003",
+      "requirement_key": "offset_mapping_fields",
+      "surface": "add_offset_events",
+      "requirement": "Multiple source mappings, a missing source, existing-target preservation, annotation, urtype, urlatency and neutral duration fields.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "add_multi_source_missing_existing_target_fields"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-004",
+      "requirement_key": "offset_oob",
+      "surface": "add_offset_events",
+      "requirement": "Continuous and epoched skip/allow policies, exact positive/negative out-of-bounds latencies and invalid-policy failures.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "default_skip_positive_oob",
+            "allow_positive_oob_exact_105",
+            "allow_negative_oob_exact_minus5",
+            "invalid_policy_oob",
+            "invalid_policy_in_bounds",
+            "epoched_allow_oob_rejected",
+            "epoched_skip_oob"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-005",
+      "requirement_key": "offset_validation",
+      "surface": "add_offset_events",
+      "requirement": "Finite real numeric sampling-rate/offset validation, mapping-length/conflict validation and integer-class equivalence.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "invalid_srate_zero",
+            "invalid_srate_char",
+            "invalid_srate_complex",
+            "invalid_srate_logical",
+            "invalid_offset_inf",
+            "invalid_offset_char",
+            "invalid_offset_complex",
+            "invalid_offset_logical",
+            "type_list_mismatch",
+            "duplicate_source_conflicting_target",
+            "integer_class_srate_offset_equivalence"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-006",
+      "requirement_key": "offset_consistency",
+      "surface": "add_offset_events",
+      "requirement": "EEGLAB event-consistency boundary is exercised and missing EEGLAB propagates.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "add_multi_source_missing_existing_target_fields"
+          ]
+        },
+        {
+          "test_id": "matlab.dependencies.extended",
+          "cases": [
+            "missing_eeglab_propagates"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-007",
+      "requirement_key": "offset_report_keys",
+      "surface": "add_offset_events.report",
+      "requirement": "Numeric labels, sanitisation collisions, MATLAB keywords and shared-target aggregation produce unique valid exact report keys.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "numeric_target_report_x7",
+            "report_key_collision_unique",
+            "keyword_report_key",
+            "shared_target_aggregation"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-EVT-008",
+      "requirement_key": "delete_contracts",
+      "surface": "delete_unwanted_events",
+      "requirement": "Default/no-event, exact case-insensitive matching, string/numeric coercion, unique report keys, keywords, no-match and invalid-label no-op contracts.",
+      "test_refs": [
+        {
+          "test_id": "matlab.events.extended",
+          "cases": [
+            "delete_no_event_default",
+            "delete_case_insensitive_string_numeric_x7_exact",
+            "delete_report_key_collision_unique",
+            "delete_keyword_report_key",
+            "delete_no_match",
+            "delete_invalid_label_list_noop"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-006",
+      "requirement_key": "reref_modes",
+      "surface": "preproc.reref",
+      "requirement": "Rereference off, all, some and no requested channels.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_op",
+            "reref_all",
+            "reref_partial",
+            "reref_none"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-007",
+      "requirement_key": "resample_modes",
+      "surface": "preproc.resample",
+      "requirement": "Resampling off, already equal and changed rate.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_op",
+            "resample_equal",
+            "resample_changed"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-008",
+      "requirement_key": "filter_modes",
+      "surface": "preproc.filter",
+      "requirement": "Filter off, high only, low only, both, empty bounds and empty command.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_op",
+            "filter_high_only",
+            "filter_low_only",
+            "filter_both",
+            "filter_empty",
+            "filter_empty_command"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-009",
+      "requirement_key": "line_off_notch",
+      "surface": "preproc.linefilter",
+      "requirement": "Line filter off and notch route with multiple/duplicate requests.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_op",
+            "line_notch_vector"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-010",
+      "requirement_key": "line_frequency_edges",
+      "surface": "preproc.linefilter",
+      "requirement": "Invalid and Nyquist-pruned line-frequency boundary.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "line_notch_vector",
+            "line_all_invalid"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-011",
+      "requirement_key": "cleanline_routes",
+      "surface": "preproc.cleanline",
+      "requirement": "CleanLine success, empty command, intended missing-function fallback and non-fallback error.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "cleanline_success",
+            "cleanline_empty_command",
+            "cleanline_undefined_fallback",
+            "cleanline_other_error"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-012",
+      "requirement_key": "epoch_modes",
+      "surface": "preproc.epoch",
+      "requirement": "Epoching off/on, one/multiple labels and no-epoch special case.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "no_op",
+            "epoch_single_label",
+            "epoch_multiple_labels",
+            "epoch_no_epochs"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-013",
+      "requirement_key": "epoch_failures",
+      "surface": "preproc.epoch",
+      "requirement": "Missing event list, empty command and unrelated epoch errors.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "epoch_missing_event_list",
+            "epoch_empty_command",
+            "epoch_other_error"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-014",
+      "requirement_key": "baseline_routes",
+      "surface": "preproc.baseline",
+      "requirement": "Baseline off/on and unrelated baseline-error propagation.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "epoch_single_label",
+            "epoch_with_baseline",
+            "baseline_other_error"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-015",
+      "requirement_key": "preproc_order_history",
+      "surface": "preproc",
+      "requirement": "Operation order, returned EEGLAB commands, exact histories and warning restoration.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "reref_all",
+            "resample_changed",
+            "filter_both",
+            "line_notch_vector",
+            "cleanline_success",
+            "epoch_with_baseline"
+          ]
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-PRE-016",
+      "requirement_key": "preprocessing_caller_contract",
+      "surface": "scripts.step_3_proc_4_preprocessing",
+      "requirement": "Deletion, offset, true/dummy-event, epoch-window and two-stage preprocessing settings are explicit and ordered; the caller cannot shadow the preproc function and stores the preprocessing provenance field.",
+      "test_refs": [
+        {
+          "test_id": "static.callers.step3"
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-RSP-001",
+      "requirement_key": "response_inputs_defaults",
+      "surface": "estimate_response",
+      "requirement": "Required options, empty-options defaults and partial default filling.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "options_required"
+          ]
+        },
+        {
+          "test_id": "matlab.clean_api",
+          "cases": [
+            "clean_defaults"
+          ]
+        },
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "partial_defaults_alt_channel"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-002",
+      "requirement_key": "response_xor",
+      "surface": "estimate_response.projection",
+      "requirement": "Exactly one finite, real, nonlogical scalar pre-or-post start with accepted signs and zero boundaries.",
+      "test_refs": [
+        {
+          "test_id": "matlab.clean_api",
+          "cases": [
+            "zero_pre",
+            "zero_post",
+            "projection_both_empty",
+            "projection_both_supplied",
+            "projection_pre_vector",
+            "projection_post_vector",
+            "projection_positive_pre",
+            "projection_negative_post",
+            "projection_pre_nan",
+            "projection_post_inf",
+            "projection_pre_complex",
+            "projection_pre_logical",
+            "projection_pre_text"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-003",
+      "requirement_key": "response_insufficient",
+      "surface": "estimate_response",
+      "requirement": "Trials and epoch metadata independently require at least two epochs.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "insufficient_epochs"
+          ]
+        },
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "trials_independently_insufficient",
+            "epoch_metadata_independently_insufficient"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-004",
+      "requirement_key": "response_channel",
+      "surface": "estimate_response.channel",
+      "requirement": "Channel selection, partial defaults, scalar string equivalence, invalid channel forms and absent negative-baseline sample checks.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "partial_defaults_alt_channel",
+            "invalid_channel_empty",
+            "invalid_channel_nested_cell",
+            "invalid_channel_nonscalar_string",
+            "scalar_string_channel_equivalence"
+          ]
+        },
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "no_negative_baseline"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-005",
+      "requirement_key": "templates_six_rates",
+      "surface": "estimate_response.templates",
+      "requirement": "All six bundled templates at 500 and 2000 Hz on pre and post routes.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "early_NRF_500Hz_post",
+            "early_NRF_500Hz_pre",
+            "early_NRF_2000Hz_post",
+            "early_NRF_2000Hz_pre",
+            "noxious_NRF_500Hz_post",
+            "noxious_NRF_500Hz_pre",
+            "noxious_NRF_2000Hz_post",
+            "noxious_NRF_2000Hz_pre",
+            "noxious_preterm_NRF_500Hz_post",
+            "noxious_preterm_NRF_500Hz_pre",
+            "noxious_preterm_NRF_2000Hz_post",
+            "noxious_preterm_NRF_2000Hz_pre"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-006",
+      "requirement_key": "response_rate_grid_bounds",
+      "surface": "estimate_response.templates",
+      "requirement": "Valid sampling/time origins, exact matching-rate enforcement, equal integer-class rates, sample-grid canonicalisation, jitter support and symmetric response-window bounds.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "template_rate_mismatch"
+          ]
+        },
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "off_grid_post",
+            "off_grid_pre",
+            "upper_response_bound",
+            "lower_response_bound",
+            "invalid_sampling_rate",
+            "invalid_time_origin",
+            "integer_class_srate_equivalence",
+            "near_grid_canonical_warning_free_equality"
+          ]
+        },
+        {
+          "test_id": "matlab.config_cache.extended",
+          "cases": [
+            "off_grid_cache_start",
+            "jitter_bound_cache_start",
+            "cache_rate_mismatch",
+            "fractional_jitter_exact_lower_edge"
+          ]
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "lower_support_bound",
+            "nonuniform_sample_grid",
+            "template_rate_mismatch"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-007",
+      "requirement_key": "resolver_local_explicit",
+      "surface": "NRFUtils.resolveTemplateFile",
+      "requirement": "Repository-local basename/string/suffix and explicit path routes bind to one logical identity.",
+      "test_refs": [
+        {
+          "test_id": "matlab.resolver.extended",
+          "cases": [
+            "logical_char",
+            "logical_string",
+            "logical_mat_suffix",
+            "explicit_path",
+            "explicit_extensionless_path"
+          ]
+        },
+        {
+          "test_id": "matlab.clean_api",
+          "cases": [
+            "logical_explicit_equality"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-008",
+      "requirement_key": "resolver_failures_shadow",
+      "surface": "NRFUtils.resolveTemplateFile",
+      "requirement": "Empty, nonscalar, numeric, bad-extension, invalid-basename, missing, malformed and wrong-rate templates fail, while an ambient same-named template cannot shadow the local binding.",
+      "test_refs": [
+        {
+          "test_id": "matlab.resolver.extended",
+          "cases": [
+            "invalid_reference_empty",
+            "invalid_reference_nonscalar_string",
+            "invalid_reference_numeric",
+            "invalid_reference_extension",
+            "invalid_reference_basename",
+            "missing_logical_template",
+            "invalid_repository_root",
+            "missing_nrf_variable",
+            "missing_fs_variable",
+            "nonfinite_nrf",
+            "invalid_fs",
+            "wrong_rate"
+          ]
+        },
+        {
+          "test_id": "matlab.clean_api",
+          "cases": [
+            "ambient_shadow"
+          ]
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "hostile_ambient_shadow"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-009",
+      "requirement_key": "response_every_epoch_array",
+      "surface": "estimate_response.dispatch",
+      "requirement": "Every epoch and each EEG-array element receive the fit.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "all_epochs_exact_schema_and_history",
+            "eeg_array_dispatch"
+          ]
+        },
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "multi_dataset"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-010",
+      "requirement_key": "response_schema_history",
+      "surface": "estimate_response.output",
+      "requirement": "Exact fit fields, shapes, numerical mapping and replayable history command.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "all_epochs_exact_schema_and_history"
+          ]
+        },
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "noxious_NRF_500Hz_post"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-011",
+      "requirement_key": "response_public_contract",
+      "surface": "estimate_response.public_surface",
+      "requirement": "The two-argument estimate_response API rejects unsupported argument counts, and all four public entrypoints resolve to repository functions.",
+      "test_refs": [
+        {
+          "test_id": "matlab.clean_api",
+          "cases": [
+            "unsupported_argument_count",
+            "repository_public_entrypoints"
+          ]
+        },
+        {
+          "test_id": "static.repository.current_surface"
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-012",
+      "requirement_key": "response_scalar_options",
+      "surface": "estimate_response.options",
+      "requirement": "Jitter and baseline length reject negative, nonfinite and logical values.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.extended",
+          "cases": [
+            "invalid_jitter_negative",
+            "invalid_jitter_nan",
+            "invalid_jitter_logical",
+            "invalid_baseline_negative",
+            "invalid_baseline_inf",
+            "invalid_baseline_logical"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-RSP-013",
+      "requirement_key": "config_profiles_cache",
+      "surface": "NRFUtils.configuration",
+      "requirement": "The repository INI parses the exact profile set; malformed or missing INIs and invalid profiles fail; duplicate cache requests and absent channels follow their defined semantics.",
+      "test_refs": [
+        {
+          "test_id": "matlab.config_cache.extended",
+          "cases": [
+            "repository_ini_profile_set",
+            "empty_ini",
+            "unknown_ini_key",
+            "nonnumeric_ini_scalar",
+            "ini_line_without_equals",
+            "missing_ini",
+            "path_valued_profile_rejected",
+            "both_projection_sides_rejected",
+            "empty_channel_rejected",
+            "negative_baseline_rejected",
+            "negative_jitter_rejected",
+            "duplicate_profile_cache",
+            "missing_channel_cache"
+          ]
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-NUM-001",
+      "requirement_key": "numeric_results",
+      "surface": "estimate_response.private_numeric",
+      "requirement": "Pearson, cosine, FGLS coefficient/variance and OLS values equal the exact scientific oracle.",
+      "test_refs": [
+        {
+          "test_id": "matlab.response.oracle",
+          "cases": [
+            "early_NRF_500Hz_post",
+            "early_NRF_2000Hz_post",
+            "noxious_NRF_500Hz_post",
+            "noxious_NRF_2000Hz_post",
+            "noxious_preterm_NRF_500Hz_post",
+            "noxious_preterm_NRF_2000Hz_post"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-JIT-001",
+      "requirement_key": "jitter_shapes_shifts",
+      "surface": "jittercorrect",
+      "requirement": "Row/column inputs, known positive/negative shifts and zero jitter preserve exact orientation, template identity and integer bounded shifts.",
+      "test_refs": [
+        {
+          "test_id": "matlab.jitter.oracle",
+          "cases": [
+            "column_input",
+            "known_positive_shift",
+            "known_negative_shift",
+            "zero_jitter"
+          ]
+        },
+        {
+          "test_id": "matlab.jitter.extended",
+          "cases": [
+            "column_input_semantics",
+            "known_positive_shift_semantics",
+            "known_negative_shift_semantics",
+            "zero_jitter_semantics"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-JIT-002",
+      "requirement_key": "jitter_edges",
+      "surface": "jittercorrect",
+      "requirement": "Non-grid and maximum jitter, sample-rate mismatch and both bounds.",
+      "test_refs": [
+        {
+          "test_id": "matlab.jitter.oracle",
+          "cases": [
+            "non_grid_jitter",
+            "exact_upper_boundary",
+            "rate_mismatch",
+            "upper_out_of_bounds",
+            "lower_out_of_bounds"
+          ]
+        },
+        {
+          "test_id": "matlab.jitter.extended",
+          "cases": [
+            "non_grid_jitter_semantics",
+            "exact_upper_boundary_semantics"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-JIT-003",
+      "requirement_key": "jitter_ties_padding",
+      "surface": "jittercorrect",
+      "requirement": "Deterministic ties, flat/all-invalid correlations and exact noncircular zero padding.",
+      "test_refs": [
+        {
+          "test_id": "matlab.jitter.oracle",
+          "cases": [
+            "finite_tie",
+            "flat_all_invalid",
+            "known_positive_shift",
+            "known_negative_shift"
+          ]
+        },
+        {
+          "test_id": "matlab.jitter.extended",
+          "cases": [
+            "finite_tie_semantics",
+            "flat_all_invalid_semantics",
+            "known_positive_shift_semantics",
+            "known_negative_shift_semantics"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-QC-001",
+      "requirement_key": "qc_coord_schema",
+      "surface": "quality_control_features",
+      "requirement": "Scalar/array coordination, explicit/fallback time vectors, multi-channel/epoch schema and failure boundaries.",
+      "test_refs": [
+        {
+          "test_id": "matlab.qc.coordinator.oracle",
+          "cases": [
+            "finite_500_odd",
+            "finite_2000_even",
+            "mixed_edges",
+            "fallback_times",
+            "time_vector_mismatch",
+            "one_epoch",
+            "multi_dataset",
+            "unepoched",
+            "missing_fallback_metadata"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-QC-002",
+      "requirement_key": "qc_direct_matrix",
+      "surface": "quality_control_calculators",
+      "requirement": "All 11 calculators cross the exact 25-case finite/nonfinite/short/flat/window/time/boundary matrix.",
+      "test_refs": [
+        {
+          "test_id": "matlab.qc.direct.oracle",
+          "cases": [
+            "finite_row",
+            "finite_column",
+            "finite_fs_2000",
+            "empty",
+            "length_1",
+            "length_9",
+            "length_10",
+            "flat_zero",
+            "flat_nonzero",
+            "near_flat",
+            "all_nonfinite",
+            "mixed_nonfinite",
+            "no_baseline_samples",
+            "no_post_samples",
+            "baseline_all_nonfinite",
+            "post_all_nonfinite",
+            "time_mismatch",
+            "constant_time",
+            "nonfinite_time_9_pairs",
+            "nonfinite_time_11_pairs",
+            "zero_time_boundary",
+            "perfect_positive_lag",
+            "perfect_negative_lag",
+            "zero_mad_outlier",
+            "single_inputs"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-QC-003",
+      "requirement_key": "qc_overwrite_array_times",
+      "surface": "quality_control_features",
+      "requirement": "Existing QC is completely overwritten, arrays preserve exact stored/retrieved data and QC, and fallback times remain supported.",
+      "test_refs": [
+        {
+          "test_id": "matlab.qc.extended",
+          "cases": [
+            "complete_overwrite_schema",
+            "array_exact_stored_retrieved_semantics",
+            "fallback_times"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-DEP-001",
+      "requirement_key": "warning_restoration",
+      "surface": "warnings",
+      "requirement": "Every preprocessing oracle and the diagnostic wrapper preserve warning/backtrace/lastwarn state and attribute context on success and error.",
+      "test_refs": [
+        {
+          "test_id": "matlab.preproc.oracle"
+        },
+        {
+          "test_id": "matlab.diagnostics.extended",
+          "cases": [
+            "success_console_output_state_restoration",
+            "error_propagation_state_restoration"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-DEP-002",
+      "requirement_key": "dependency_present",
+      "surface": "dependencies",
+      "requirement": "Required fgls, robustfit, corr and EEGLAB APIs plus present CleanLine resolve in the locked environment.",
+      "test_refs": [
+        {
+          "test_id": "matlab.dependencies.extended",
+          "cases": [
+            "present_fgls",
+            "present_robustfit",
+            "present_corr",
+            "present_eeg_checkset",
+            "present_pop_select",
+            "present_pop_rmbase",
+            "present_pop_cleanline"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-DEP-003",
+      "requirement_key": "dependency_missing",
+      "surface": "dependencies",
+      "requirement": "Missing fgls, robustfit, corr and EEGLAB errors propagate; only intended missing CleanLine falls back.",
+      "test_refs": [
+        {
+          "test_id": "matlab.dependencies.extended",
+          "cases": [
+            "missing_fgls_propagates",
+            "missing_robustfit_propagates",
+            "missing_corr_propagates",
+            "missing_eeglab_propagates"
+          ]
+        },
+        {
+          "test_id": "matlab.preproc.oracle",
+          "cases": [
+            "cleanline_undefined_fallback",
+            "cleanline_other_error"
+          ]
+        }
+      ],
+      "category": "scientific-core"
+    },
+    {
+      "id": "BASE-CLS-001",
+      "requirement_key": "closure_function_inventory",
+      "surface": "repository.functions",
+      "requirement": "Exact 30-function workflow inventory.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.function_inventory"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-002",
+      "requirement_key": "closure_templates",
+      "surface": "repository.NRFs",
+      "requirement": "Exact six template names and byte digests.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.template_inventory"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-003",
+      "requirement_key": "closure_current_surface",
+      "surface": "repository.current_source",
+      "requirement": "Repository entrypoints, NRF configuration and data/log locations resolve to the documented local surface.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.current_surface"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-004",
+      "requirement_key": "closure_ignore_hyp",
+      "surface": "repository.ignore_policy",
+      "requirement": "Hypothetical Git probes verify ignored data, nested data, data/logs, CSV/XLSX and Finder artefacts, with placeholders and repository files visible.",
+      "test_refs": [
+        {
+          "test_id": "static.git.hypothetical_ignore"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-005",
+      "requirement_key": "closure_ignore_real",
+      "surface": "repository.ignore_policy",
+      "requirement": "Real files created only in an isolated candidate obey the current ignore policy and remain status-neutral.",
+      "test_refs": [
+        {
+          "test_id": "static.git.real_ignore"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-006",
+      "requirement_key": "closure_clone",
+      "surface": "repository.clone",
+      "requirement": "A local fresh clone contains data and data_lists with only their placeholders.",
+      "test_refs": [
+        {
+          "test_id": "static.git.fresh_clone"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-007",
+      "requirement_key": "closure_logs",
+      "surface": "repository.logs",
+      "requirement": "A copied temporary-project logger creates and replaces only ignored data/logs output, writes its token and stops idempotently.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.logs"
+        },
+        {
+          "test_id": "matlab.logger.extended",
+          "cases": [
+            "temp_project_data_logs_replace_token_idempotent_stop"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-008",
+      "requirement_key": "closure_viewer_qc_example",
+      "surface": "scripts.step_6_screen_2_viewer_rate_epochs",
+      "requirement": "The viewer QC feature-list assertion example and repository-specific whisker setting occur exactly as documented.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.viewer_qc_example"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-009",
+      "requirement_key": "closure_step54",
+      "surface": "scripts.step_5_sum_4_plot_epochs",
+      "requirement": "Overlay off/on and logical/explicit template references route through the repository resolver.",
+      "test_refs": [
+        {
+          "test_id": "static.callers.step5_4"
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "logical_route_provenance_support_shift",
+            "explicit_route_exact_equality"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-010",
+      "requirement_key": "closure_step72",
+      "surface": "scripts.step_7_check_2_plot_included_epochs",
+      "requirement": "Overlay off/on and logical/explicit template references route through the repository resolver.",
+      "test_refs": [
+        {
+          "test_id": "static.callers.step7_2"
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "logical_route_provenance_support_shift",
+            "explicit_route_exact_equality"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-011",
+      "requirement_key": "closure_step73",
+      "surface": "scripts.step_7_check_3_plot_average_ts",
+      "requirement": "Compute/plot overlay off/on and logical/explicit references route through the repository resolver.",
+      "test_refs": [
+        {
+          "test_id": "static.callers.step7_3"
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "logical_route_provenance_support_shift",
+            "explicit_route_exact_equality"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-012",
+      "requirement_key": "closure_strasbourg",
+      "surface": "repository.dataset_specific_contract",
+      "requirement": "The repository contains exactly 34 Strasbourg workflow scripts with cannula/prestim, Cz/CZ, 200/1200-ms, preterm-NRF, Step-8 earliest-recording and within-subject-median behaviour.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.strasbourg_contract"
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "logical_route_provenance_support_shift",
+            "explicit_route_exact_equality"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-013",
+      "requirement_key": "closure_generated",
+      "surface": "repository.current_tree",
+      "requirement": "Generated data, logs and result artefacts are absent from the tracked candidate.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.unintended_files"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-014",
+      "requirement_key": "closure_readme",
+      "surface": "README.md",
+      "requirement": "Layout, setup, APIs, defaults, templates, dependencies, logging and test examples match executable behaviour.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.readme"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-015",
+      "requirement_key": "closure_root",
+      "surface": "repository.root",
+      "requirement": "The documented top-level repository contract is exact.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.root_shape"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-016",
+      "requirement_key": "closure_git",
+      "surface": "repository.git",
+      "requirement": "The candidate index passes Git whitespace checks and the source index remains unstaged.",
+      "test_refs": [
+        {
+          "test_id": "static.git.diff_check"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-017",
+      "requirement_key": "closure_config",
+      "surface": "repository.configuration",
+      "requirement": "The sole NRF INI is under NRFs and all runtime consumers use and parse that path.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.config_location"
+        },
+        {
+          "test_id": "matlab.config_cache.extended",
+          "cases": [
+            "repository_ini_profile_set"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-018",
+      "requirement_key": "closure_paths",
+      "surface": "repository.path_precedence",
+      "requirement": "Callers start EEGLAB before adding local functions at path precedence and assert canonical local resolution; templates never depend on ambient which/path search.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.path_precedence"
+        },
+        {
+          "test_id": "matlab.resolver.extended",
+          "cases": [
+            "logical_char",
+            "explicit_path"
+          ]
+        },
+        {
+          "test_id": "matlab.overlay.extended",
+          "cases": [
+            "hostile_ambient_shadow"
+          ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-019",
+      "requirement_key": "closure_manifest",
+      "surface": "tests.coverage_manifest",
+      "requirement": "Coverage schema, exact required-key set, named test references, case references, source anchors and scientific-oracle matrix cardinalities self-check.",
+      "test_refs": [
+        {
+          "test_id": "static.manifest"
+        }
+      ],
+      "category": "repository"
+    }
+  ]
+}

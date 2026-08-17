@@ -1,548 +1,230 @@
-# simple-strasbourg
+# SIMPLE Strasbourg
 
-A MATLAB/EEGLAB workflow for taking Strasbourg BrainVision recordings through source preparation, raw `.set` creation, SIMPLE processing and quantification, screening, post-screening checks, and subject-level CSV export.
+SIMPLE Strasbourg is the MATLAB/EEGLAB workflow for the NOCI-Prem neonatal EEG
+dataset supplied by the Strasbourg collaborators. It covers BrainVision source
+preparation, the complete SIMPLE EEG workflow, and Strasbourg-specific
+subject-level export.
 
-## Repository overview
+Associated methods paper: citation and link to be added when available.
 
-This repository contains the complete Strasbourg-specific workflow. It is organised into three practical blocks:
-
-1. **Strasbourg source and raw-data preparation (Steps 1–2)**
-   - inventory and validate BrainVision source files
-   - copy complete BrainVision triplets into a local source tree
-   - inspect, filter, and standardise events and channels
-   - create framework-ready EEGLAB `.set` files and `dataset_list.csv`
-2. **Embedded SIMPLE framework workflow (Steps 3–7)**
-   - process and epoch the prepared recordings
-   - extract quality-control (QC) and neurodynamic response function (NRF) quantities
-   - summarise and pool outputs
-   - screen epoch–channel items
-   - perform post-screening checks
-3. **Strasbourg-specific export (Step 8)**
-   - create an earliest-recording subject-level table
-   - create a within-subject-median table
-   - create an audit manifest describing both routes
-
-Run dependency-bearing stages in numerical order, with explicit inspection and editing checkpoints between some scripts. The Step 7 checks are individually configured diagnostics rather than inputs consumed by Step 8.
-
-## What this repository is for
-
-This repository is for:
-
-- preparing the Strasbourg BrainVision recordings for the SIMPLE workflow
-- running the SIMPLE workflow locally on those prepared recordings
-- preserving explicit intermediate inventories, summaries, screening decisions, and logs
-- exporting screened QC and NRF measures into two alternative subject-level CSV layouts
-- retaining an audit manifest for the Step 8 selection and aggregation rules
-
-## What this repository is not for
-
-This repository is not intended to be:
-
-- a general-purpose EEG toolbox
-- a substitute for the reusable functions in the `simple` EEGLAB plugin
-- the primary location for detailed documentation of the common framework internals
-- a one-click workflow with no user judgement or inspection points
-- a JASP analysis repository
-
-## Relationship to the other SIMPLE repositories
-
-### How `simple-strasbourg` relates to `simple-framework`
-
-`simple-framework` documents the reusable five-stage framework workflow. In `simple-strasbourg`, that framework is embedded as the middle block of a broader dataset-specific pipeline.
-
-The numbering maps as follows:
-
-- `simple-strasbourg` Step 3 = `simple-framework` Step 1 (`proc`)
-- `simple-strasbourg` Step 4 = `simple-framework` Step 2 (`quant`)
-- `simple-strasbourg` Step 5 = `simple-framework` Step 3 (`sum`)
-- `simple-strasbourg` Step 6 = `simple-framework` Step 4 (`screen`)
-- `simple-strasbourg` Step 7 = `simple-framework` Step 5 (`check`)
-
-The Step 3–7 scripts themselves live and run in `simple-strasbourg`. The `simple-framework` repository supplies detailed documentation of the common stages; it is a documentation reference and is not imported at runtime.
-
-### How `simple-strasbourg` differs from `simple-framework`
-
-`simple-strasbourg` is broader in scope. Before the framework block, Steps 1–2 prepare BrainVision source recordings and create EEGLAB raw datasets. After the framework block, Step 8 creates Strasbourg-specific CSV exports.
-
-`simple-framework` begins from already prepared EEGLAB raw datasets and an appropriate `dataset_list.csv`. It is therefore the clearer standalone representation of the framework itself.
-
-### How `simple-strasbourg` relates to `simple`
-
-`simple` is an EEGLAB plugin containing reusable processing, QC, and NRF functions. The local Strasbourg scripts call plugin functions such as `pop_preproc`, `quality_control_features`, and `pop_estimate_response` as part of the wider workflow.
-
-## How to approach this repository
-
-Treat this repository as a staged workflow with deliberate hand-offs:
-
-1. inventory and copy complete source-file triplets
-2. inspect and standardise source metadata while creating raw `.set` files
-3. run the embedded framework block on the prepared inputs
-4. create the Step 8 CSV exports from screened framework outputs
-
-Before running the scripts, read:
-
-- **Before you begin**
-- **Workflow stages in this repository**
-- **Points where user input or inspection is required**
-- **Steps 3–7: embedded framework workflow**
-- **Step 8: subject-level CSV export**
-
-The common framework stages are summarised here in their Strasbourg context. Their detailed operational documentation is kept in the `simple-framework` README.
-
-## Repository structure
-
-Data, logs, generated outputs, screening decisions, and downstream analysis files are local working materials excluded from version control; a fresh clone contains the workflow code, tracked configuration, and documentation only.
-
-### `data_lists/`
-
-Tracked configuration and local workflow inventories.
-
-The tracked file is:
-
-- `nrf_config.ini`, which defines NRF fitting profiles used during Step 4
-
-The generated `dataset_list_prelim.xlsx` and `dataset_list.csv` files are local working materials and are excluded from version control.
-
-### `functions/`
-
-MATLAB helper functions used by the runnable scripts, including environment setup, event operations, NRF utilities, and time-series averaging and overlay helpers.
-
-### `scripts/`
-
-Runnable MATLAB scripts organised into Steps 1–8.
-
-This folder also contains `log_command_window.m`, which writes per-script Command Window logs.
-
-### Generated `data/` tree
-
-The scripts create and use local data folders including:
-
-- `data/source/` for copied BrainVision source triplets
-- `data/raw/` for framework-ready EEGLAB `.set` files
-- `data/info_prelim/` for source and raw-preparation inventories
-- `data/info/` for framework-stage inventories
-- `data/processed/` for processed datasets
-- `data/summary/` for individual, pooled, screening, and checking outputs
-- `data/jasp/` for the three Step 8 CSV exports
-
-The entire generated `data/` tree is excluded from version control.
-
-### Generated `logs/`
-
-Per-script Command Window logs written by `log_command_window.m`. The `logs/` folder is excluded from version control.
-
-### `LICENSE`
-
-The repository is distributed under the tracked Apache License 2.0.
-
-## Before you begin
-
-### Software requirements
-
-The tracked code assumes access to:
-
-- **MATLAB**
-- **EEGLAB**
-- BrainVision I/O support providing `pop_loadbv`
-- the **SIMPLE** EEGLAB plugin
-- the **Signal Processing Toolbox** for `pmtm`-based plots
-- the **Wavelet Toolbox** for continuous-wavelet time–frequency plots
-- the **Statistics and Machine Learning Toolbox** for effect-size and regression utilities used by checking and plotting code
-
-No software-version lock is tracked in this repository. Requirements vary by stage, so review the functions called by the scripts you intend to run.
-
-JASP can consume the generated Step 8 CSV files, but it is not required to execute the MATLAB workflow. Step 8 does not create or run a `.jasp` file.
-
-### Expected source data
-
-Step 1 expects BrainVision recordings supplied as matching `.vhdr`, `.vmrk`, and `.dat` triplets. The workflow first inventories a flat source export, then copies complete triplets into a local subject/session EEG tree while preserving the source filenames and their internal BrainVision links.
-
-### Path setup
-
-The runnable scripts define local project roots within the scripts, and the first source-inventory script also defines an external source location. Review those path variables before running any stage. Do not assume that paths from another installation will apply to a new clone.
-
-### Running the scripts
-
-Run dependency-bearing stages in numerical order. Configure and run the Step 7 checks needed for the execution; Step 8 reads the screened Step 6 outputs and source marker files rather than saved Step 7 plots or check results. It is recommended to run scripts from the `scripts/` folder, or otherwise ensure that folder and the required helper/plugin functions are on the MATLAB path.
-
-Several scripts depend on user-reviewed files created by an earlier script. Do not run straight through a documented checkpoint without inspecting or completing the generated fields.
-
-### Logging
-
-The runnable scripts use `log_command_window('start')` and `log_command_window('stop')` to create per-script logs in `logs/`. These logs are local generated outputs and should be retained with the dataset-specific working materials when an execution needs to be audited.
-
-## High-level workflow
+## Repository layout
 
 ```text
-BrainVision source export
-        |
-        v
-Step 1: source inventory, validation, and local source tree
-        |
-        v
-Step 2: event/channel review and framework-ready raw .set files
-        |
-        v
-Steps 3–7: embedded SIMPLE framework
-        |
-        v
-Step 8: earliest-recording export, median export, and manifest
+simple-strasbourg/
+├── data/                 local inputs, intermediate files, outputs and logs
+├── data_lists/           local dataset lists and study spreadsheets
+├── functions/            MATLAB functions used by the workflow
+├── NRFs/                 bundled NRF templates and nrf_config.ini
+├── scripts/              numbered workflow scripts and the logging helper
+├── tests/                synthetic regression fixtures and test runners
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
 
-## Workflow stages in this repository
+`data/` and `data_lists/` are present in a checkout through tracked `.gitkeep`
+files. Every runtime descendant of `data/` is local and ignored by Git. CSV and
+XLSX files anywhere beneath `data_lists/` are also ignored. Do not put data
+files in version control.
 
-| Repository step | Prefix | Role |
+Each numbered script writes its Command Window diary to `data/logs/`. A run
+replaces the existing log for that script, and all logs are ignored by Git.
+
+## Software and setup
+
+The workflow requires MATLAB and EEGLAB. The verified environment is
+MATLAB R2026a Update 4 with EEGLAB 2026.0.0. Required functionality includes:
+
+- Statistics and Machine Learning Toolbox operations such as `corr`,
+  `robustfit` and `fitlm`;
+- Econometrics Toolbox `fgls`;
+- Signal Processing Toolbox operations used by filtering and spectral checks;
+- Wavelet Toolbox for the time-frequency check; and
+- BrainVision import support providing `pop_loadbv`.
+
+CleanLine is optional. Preprocessing uses it when selected and otherwise uses
+the configured notch-filter route.
+
+Scripts that call repository functions start EEGLAB, prepend this checkout's
+`functions/` directory to the MATLAB path, and verify that required functions
+resolve there. Do not add `NRFs/` to the MATLAB path; logical template names
+are resolved directly against this repository.
+
+The scripts contain editable Strasbourg root variables such as `baseDir`,
+`root`, `local_base` or `PROJECT_ROOT`; the first source-inventory script also
+contains the external source location. Set those declarations for the current
+installation before running a stage. Run numbered scripts from the `scripts/`
+folder using ordinary MATLAB script semantics. The workflow is staged and
+includes deliberate manual inspection points; it is not a single batch
+command.
+
+## Functions
+
+The repository contains the functions used by the Strasbourg workflow.
+Important public entry points include:
+
+- `preproc(EEG, options)` for rereferencing, resampling, filtering, line-noise
+  handling, epoching and baseline correction;
+- `add_offset_events` for the separate, explicit offset-event mechanism;
+- `quality_control_features` and its 11 `calc_*` feature calculators;
+- `estimate_response(EEG, options)` and `jittercorrect` for NRF estimation;
+- `NRFUtils` for configuration, mapping, template resolution and fit caching;
+- Curry/XDF conversion and event-reading functions;
+- time-series averaging, NRF-overlay and paired-effect helpers; and
+- diagnostics, plotting and save helpers used by the numbered scripts.
+
+`preproc` intentionally does not create offset events. Step 3 first performs
+continuous preprocessing, then calls `add_offset_events` under the configured
+source-event, annotation and out-of-bounds policy, and finally calls `preproc`
+again for epoching and baseline correction.
+
+## NRF templates and configuration
+
+`NRFs/` contains six tracked templates:
+
+```text
+early_NRF_500Hz.mat
+early_NRF_2000Hz.mat
+noxious_NRF_500Hz.mat
+noxious_NRF_2000Hz.mat
+noxious_preterm_NRF_500Hz.mat
+noxious_preterm_NRF_2000Hz.mat
+```
+
+Every template MAT file contains `NRF` and `fs`. The template sampling rate
+must exactly equal the EEG sampling rate; the estimator does not resample
+templates.
+
+`NRFs/nrf_config.ini` defines the profiles used by Step 4 NRF feature
+extraction. Each profile has exactly six settings: `NRFName`,
+`baselineLength`, `jitter`, `channel`, `projectionTimes_pre` and
+`projectionTimes_post`. `NRFName` is a logical basename that resolves to the
+matching file in this repository's `NRFs/` directory.
+
+Exactly one projection start must be supplied per fit:
+
+- `projectionTimes_pre` may be one finite scalar at or before 0 ms while the
+  post value is empty; or
+- `projectionTimes_post` may be one finite scalar at or after 0 ms while the
+  pre value is empty.
+
+Vectors, two starts, no start, nonfinite values and wrong-sign starts are
+rejected before computation. The public estimator defaults to an empty pre
+start and a post start of 400 ms. Estimator and plotting calls may also use an
+explicit MAT-file path; outputs retain the validated logical basename as the
+NRF identity and record the canonical file used as provenance.
+
+## Workflow
+
+Run scripts in numerical order, checking each script's user-editable settings
+and expected inputs before execution.
+
+### Step 1 — Strasbourg source preparation
+
+Inventories the flat BrainVision source export, derives subject/session/run
+identities, verifies the expected `.vhdr`, `.vmrk` and `.dat` triplets, and
+copies complete triplets into the local `data/source/` tree. Review
+`data_lists/dataset_list_prelim.xlsx` and its missing-file flags before the copy
+stage.
+
+### Step 2 — Strasbourg raw-data preparation
+
+Loads the BrainVision recordings, inventories and maps event types, applies
+user-completed event and channel filters, applies configured latency
+corrections, and saves one-file EEGLAB datasets beneath `data/raw/`. The final
+`data_lists/dataset_list.csv` contains `subjectID`, `sessionID`, `runID`,
+`path_raw` and `EEGfile_raw` for recordings admitted to the framework.
+
+Manual checkpoints include completing `Type_new` mappings, reviewing filter
+fields and latency-correction flags, and checking the final event/channel
+inventories.
+
+### Steps 3–7 — SIMPLE framework
+
+The middle block implements the five stages documented in `simple-framework`:
+
+| Strasbourg step | Framework step | Stage |
 |---|---|---|
-| Step 1 | `step_1_source_*` | Inventory, validate, and copy BrainVision source files |
-| Step 2 | `step_2_raw_*` | Standardise events/channels and create raw EEGLAB datasets |
-| Step 3 | `step_3_proc_*` | Process and epoch prepared datasets |
-| Step 4 | `step_4_quant_*` | Extract QC and NRF quantities |
-| Step 5 | `step_5_sum_*` | Summarise and pool outputs |
-| Step 6 | `step_6_screen_*` | Create, complete, and apply explicit screening |
-| Step 7 | `step_7_check_*` | Inspect screened data and run post-screening checks |
-| Step 8 | `step_8_jasp_*` | Create two subject-level data CSVs and an audit manifest |
-
-## Step 1: Strasbourg source preparation
-
-Step 1 inventories the external BrainVision export, verifies each expected file triplet, and creates the local source tree.
-
-### Scripts
-
-#### `step_1_source_1_create_dataset_list_prelim.m`
-
-- scans the configured flat source folder for `.vhdr` files
-- derives `subjectID`, `sessionID`, and `runID` values from the source filenames
-- predicts the corresponding `.vmrk` and `.dat` filenames
-- writes `data_lists/dataset_list_prelim.xlsx`
-- does not copy files or yet validate the predicted sidecars
-
-#### `step_1_source_2_find_missing.m`
-
-- reads the preliminary inventory
-- checks whether the `.vhdr`, `.vmrk`, and `.dat` files exist for each row
-- adds or refreshes the file-specific missing flags
-- overwrites the preliminary inventory with those checks
-
-#### `step_1_source_3_create_source.m`
-
-- reads the checked preliminary inventory
-- creates a subject/session EEG tree under `data/source/`
-- copies only complete `.vhdr`/`.vmrk`/`.dat` triplets
-- preserves source filenames and same-directory placement for existing BrainVision file references
-- supports file-level restart after interruption by retaining final files, deleting stale local `.partial` files, and recopying absent final files
-
-### Manual checkpoint
-
-Inspect `dataset_list_prelim.xlsx` and its missing-file flags before creating the source tree. Resolve unexpected inventory or sidecar problems before continuing.
-
-### Main outputs
-
-- `data_lists/dataset_list_prelim.xlsx`
-- copied BrainVision triplets under `data/source/`
-- a Command Window log for each script
-
-## Step 2: Strasbourg raw-data preparation
-
-Step 2 turns the copied BrainVision source recordings into standardised EEGLAB `.set` files and creates the five-column dataset list required by the embedded framework.
-
-### Scripts
-
-#### `step_2_raw_1_get_original_events.m`
-
-- loads each usable BrainVision recording with `pop_loadbv`
-- inventories every original event type per recording and across recordings
-- adds per-recording event information to the preliminary dataset list
-- creates a global event summary with user-editable `Type_new`, event-filter, and latency-correction fields
-
-#### `step_2_raw_2_filter_events.m`
-
-- applies the user-completed `Filter_AND`, `Filter_OR`, and `Filter_NOT` rules
-- records whether each dataset satisfies the configured event requirements
-
-#### `step_2_raw_3_add_reformats.m`
-
-- combines missing-file and event-filter outcomes into an upstream dataset-exclusion field
-- derives standardised `.set` filenames
-- derives project-relative `data/raw/` destination paths
-
-#### `step_2_raw_4_create_raw.m`
-
-- loads each included BrainVision recording
-- preserves the original event type in `EEG.event.urtype`
-- maps original types to the user-completed `Type_new` values
-- maps a blank `Type_new` value to `NA`
-- saves a one-file EEGLAB `.set` dataset under `data/raw/`
-
-#### `step_2_raw_5_adjust_latencies.m`
-
-- reads the dataset- and event-level latency-correction flags created earlier
-- applies the script's configured fixed time shift only where both levels request it
-- checks existing event-latency provenance before overwriting an affected `.set` file
-- records original latencies for later provenance checks
-
-Review the script's correction value and the generated flags before running it.
-
-#### `step_2_raw_6_get_standardised_events.m`
-
-- inventories the resulting standardised `EEG.event.type` values
-- writes per-recording and global summaries
-- updates the preliminary dataset list
-
-#### `step_2_raw_7_get_channels.m`
-
-- inventories channel labels in the included raw datasets
-- writes per-recording and global channel summaries
-- creates user-editable channel-filter fields
-
-#### `step_2_raw_8_filter_channels.m`
-
-- applies the user-completed channel `Filter_AND`, `Filter_OR`, and `Filter_NOT` rules
-- records the resulting channel-based exclusion status
-
-#### `step_2_raw_9_create_dataset_list.m`
-
-- validates the upstream dataset- and channel-exclusion fields
-- keeps only rows that pass both sets of criteria
-- validates nonblank inputs and unique subject/session/run keys
-- writes `data_lists/dataset_list.csv` with:
-  - `subjectID`
-  - `sessionID`
-  - `runID`
-  - `path_raw`
-  - `EEGfile_raw`
-
-### Manual checkpoints
-
-After `step_2_raw_1_get_original_events.m`:
-
-- inspect the original-event inventories
-- complete and review the `Type_new` mappings
-- complete and review any event-filter rules
-- complete and review any latency-correction flags before running dependent scripts
-
-After `step_2_raw_7_get_channels.m`:
-
-- inspect the channel inventories
-- complete and review any channel-filter rules before applying them
-
-### Output handed forward to the framework
-
-By the end of Step 2, the repository is expected to have produced:
-
-- raw EEGLAB `.set` files under `data/raw/`
-- a final `data_lists/dataset_list.csv`
-- standardised event types in those raw datasets
-- the filtered set of recordings that the framework scripts will process
-
-This is the hand-off from Strasbourg-specific data preparation to the embedded framework block.
-
-## Steps 3–7: embedded framework workflow
-
-Steps 3–7 are the local Strasbourg implementation of the same five stages documented in `simple-framework`.
-
-### Step 3: processing (`proc`)
-
-Corresponds to `simple-framework` Step 1.
-
-The scripts:
-
-- inventory raw event types and channel labels
-- add processed filenames and paths to `dataset_list.csv`
-- preprocess the continuous datasets
-- create the configured offset/internal-reference events
-- epoch and baseline the data
-
-### Step 4: quantification (`quant`)
-
-Corresponds to `simple-framework` Step 2.
-
-The scripts:
-
-- extract configured QC features
-- inventory epoch types and multi-event epochs
-- use the tracked `nrf_config.ini` profiles to extract NRF quantities
-
-After the epoch inventory is generated, review and complete its NRF-profile mapping before running NRF extraction.
-
-### Step 5: summarisation and pooling (`sum`)
-
-Corresponds to `simple-framework` Step 3.
-
-The scripts:
-
-- add summary paths
-- write individual QC, NRF, and epoch summaries
-- concatenate those summaries into pooled outputs
-- optionally display pooled epoch plots for inspection
-
-### Step 6: screening (`screen`)
-
-Corresponds to `simple-framework` Step 4.
-
-The scripts:
-
-- create a self-contained screening package
-- support manual rating of epoch–channel items in the screening viewer
-- apply the resulting decisions to pooled epoch, QC, and NRF outputs
-
-The package-creation script refuses to overwrite an existing screening package. Keep the package fixed and treat the separate decisions file as the mutable screening record.
-
-### Step 7: post-screening checks (`check`)
-
-Corresponds to `simple-framework` Step 5.
-
-The scripts:
-
-- save a rollback-safe, verified PNG batch for excluded epoch–channel items
-- display retained epoch–channel items, with strict screening and requested-NRF-overlay coherence checks
-- display Simple, NRF-shifted, or Woody group time series and configurable time–frequency and power-spectral-density views
-- perform paired QC and NRF separation checks at the recording–channel key defined by subject, session, run, and channel
-- atomically save each paired separation result, its exact ordered within-pair differences, bootstrap settings, and source identities using schema `simple-paired-separation-result-v2`
-
-The group time-series script keeps recording-level contributions and offers mean or median aggregation with optional smoothing. Its Strasbourg defaults retain the preterm NRF route and the Strasbourg epoch geometry; these are dataset-specific settings rather than universal SIMPLE rules. The paired checks compute the selected mean or median directly from complete recording-level `true - internal reference` differences and obtain the corresponding 95% paired BCa bootstrap interval from those difference rows.
-
-Steps 7.2–7.5 are display-only apart from their Command Window logs. Step 7.1 writes the excluded-item PNG batch, while Steps 7.6 and 7.7 write the machine-readable result files:
-
-- `data/summary/screening/step_7_check_6_sep_check_qc_result.mat`
-- `data/summary/screening/step_7_check_7_sep_check_nrf_result.mat`
-
-### Detailed common documentation
-
-See the **`simple-framework` repository README** for the detailed rationale, inputs, outputs, manual checkpoints, and operating rules of these common stages.
-
-The scripts are duplicated locally so the Strasbourg pipeline executes Steps 3–7 inside this repository. Running `simple-strasbourg` does not import scripts from `simple-framework`.
-
-### Analytical-unit boundary
-
-No within-subject median aggregation is applied in Steps 1–7. Those stages retain their existing recording- and epoch-level units. The within-subject median is introduced only by the separate Step 8 median export and does not alter any earlier framework input, screening unit, or output.
-
-## Step 8: subject-level CSV export
-
-Script:
-
-- `step_8_jasp_1_data_prep_eeg.m`
-
-Step 8 reads the screened pooled QC and NRF feature tables and uses BrainVision marker files to establish acquisition chronology for the candidate cannula recordings. It builds and validates all three output tables before replacing their destination files.
-
-### Earliest-recording route
-
-For `data/jasp/jasp_data_eeg.csv`, the script:
-
-- identifies the candidate cannula recording pairs represented in the screened QC and NRF tables
-- ranks each subject's recordings using the timestamp of the cannula event in the corresponding BrainVision marker file
-- selects rank 1 before consulting the screening `Exclude` values
-- leaves the selected true-event QC and NRF values missing if the true cannula epoch is excluded
-- never substitutes a later recording for an excluded selected recording
-- retains one output row per subject
-
-### Within-subject-median route
-
-For `data/jasp/jasp_data_eeg_median.csv`, the script:
-
-- includes a recording only when its matched true cannula and `cannula_prestim` epochs are both screening-retained
-- uses one common contributor set of complete matched recording pairs for all four analytical values
-- calculates the ordinary median separately for each QC or NRF value across a subject's contributing recordings
-- retains one row per subject with all four analytical values missing if no complete retained pair contributes
-
-This aggregation occurs only here, after the framework and screening stages.
-
-### Selection manifest
-
-`data/jasp/jasp_selection_manifest.csv` provides recording-level provenance for the two routes. Its fields record:
-
-- the subject, session, and run identity
-- recovered acquisition chronology and within-subject rank
-- whether the recording was selected by the earliest-recording rule
-- the named selection rule
-- the relative marker-file path and its SHA-256 checksum
-- the true and reference screening flags
-- whether the recording contributes to the median route
-- the named median-aggregation rule
-
-### Generated CSVs
-
-Step 8 writes exactly:
-
-- `data/jasp/jasp_data_eeg.csv`
-- `data/jasp/jasp_data_eeg_median.csv`
-- `data/jasp/jasp_selection_manifest.csv`
-
-The two data files share this five-column schema:
-
-- `subjectID`
-- `CA_BL_MeanAbsDiffNorm` for the `cannula_prestim` internal-reference epoch
-- `CA_ER_MeanAbsDiffNorm` for the `cannula` true-event epoch
-- `CA_BL_pnNRF_mag` for the internal-reference epoch's NRF `fglsCoef`
-- `CA_ER_pnNRF_mag` for the true-event epoch's NRF `fglsCoef`
-
-Step 8 is configured for a specific expected source-table schema, channel, run, event pair, NRF profile, BrainVision timing assumptions, and snapshot-specific validation assertions. Review those settings before reusing the script with a different dataset state.
-
-Step 8 generates CSV files only. It does not create JASP archives or execute downstream analyses.
-
-## Points where user input or inspection is required
-
-At minimum:
-
-### During Step 1
-
-- review the preliminary source inventory and missing-file flags before copying source files
-
-### During Step 2
-
-- complete and review event relabelling
-- complete and review event filters
-- complete and review any latency-correction flags and the configured correction value
-- complete and review channel filters
-- inspect the final included dataset list
-
-### During Steps 3–7
-
-- review the generated event, channel, epoch, and multi-event inventories
-- complete the epoch-to-NRF-profile mapping before NRF extraction
-- review individual and pooled summaries
-- perform and preserve the manual epoch–channel screening decisions
-- inspect the post-screening outputs and checks
-
-See the `simple-framework` README for the complete common-stage checkpoints.
-
-### During Step 8
-
-- confirm that the screened inputs and BrainVision marker files match the script's fixed schema and validation assumptions
-- review both data exports and the manifest before using them downstream
-
-## Key output contracts
-
-Across the full workflow, the principal generated outputs include:
-
-- `data_lists/dataset_list_prelim.xlsx`
-- `data_lists/dataset_list.csv`
-- copied BrainVision source triplets
-- raw and processed EEGLAB `.set` files
-- source, event, channel, epoch, and multi-event inventories
-- individual and pooled QC, NRF, and epoch summaries
-- screening package and screening decisions
-- screened pooled outputs carrying `Exclude` flags
-- the verified excluded-item PNG batch
-- display-only post-screening figures and console summaries
-- schema-v2 paired QC and NRF separation result MAT files
-- the three Step 8 CSV files
-- per-script Command Window logs
-
-These are generated local working materials, not tracked contents of a fresh clone.
-
-## Logging and provenance
-
-The workflow preserves several forms of operational provenance:
-
-- per-script Command Window logs
-- source and raw-data inventories
-- path and filename fields in the generated dataset lists
-- processing and quantification metadata written into EEGLAB datasets by relevant stages
-- a fixed screening package and separate mutable screening decisions
-- screening flags in the screened pooled outputs
-- Step 8 rule names, chronology, marker paths, marker checksums, and contribution flags in the selection manifest
-
-Retain the generated files together when preserving or reviewing a particular execution. A clone of the tracked repository alone does not contain those local materials.
+| Step 3 | Step 1 | processing and epoching (`proc`) |
+| Step 4 | Step 2 | QC and NRF quantification (`quant`) |
+| Step 5 | Step 3 | individual summaries and pooling (`sum`) |
+| Step 6 | Step 4 | manual epoch-channel screening (`screen`) |
+| Step 7 | Step 5 | post-screening checks (`check`) |
+
+These scripts run from this repository. See the `simple-framework` README for
+detailed stage inputs, outputs, rationale, manual checkpoints and operating
+rules.
+
+Step 3 preprocesses continuous recordings, removes unwanted events, adds
+configured offset or internal-reference events, and performs epoching and
+baseline correction. Step 4 calculates per-event/channel QC features and NRF
+fits. Step 5 creates individual and pooled summaries. Step 6 creates the fixed
+screening package, records manual decisions and applies them to pooled outputs.
+Step 7 provides display and machine-readable checks of the screened results.
+
+The Strasbourg settings use `cannula` and `cannula_prestim` epochs at `Cz`, a
+200 ms pre-event and 1200 ms post-event epoch, and the configured preterm NRF
+route. Review these settings against the intended execution before running the
+dependent scripts.
+
+### Step 8 — Strasbourg analysis export
+
+`step_8_jasp_1_data_prep_eeg.m` reads the screened pooled QC and NRF tables and
+uses the BrainVision marker files to establish recording chronology. It writes:
+
+- `data/jasp/jasp_data_eeg.csv`, containing the earliest timestamped cannula
+  recording selected for each subject before screening flags are consulted;
+- `data/jasp/jasp_data_eeg_median.csv`, containing the within-subject median of
+  complete recording pairs for which both `cannula` and `cannula_prestim` are
+  retained; and
+- `data/jasp/jasp_selection_manifest.csv`, recording chronology, selection,
+  screening and contribution provenance for both routes.
+
+The earliest-recording route does not substitute a later recording when the
+selected true-event epoch is excluded. The median route uses one common set of
+complete retained recording pairs for all four analytical values. Step 8
+creates CSV files only; it does not create or execute a JASP archive.
+
+## User decisions and scientific boundaries
+
+Review enabled and disabled user options rather than assuming the checked-in
+settings are appropriate for another execution. In particular, confirm source
+paths, event mappings, channels, sampling rates, filters, epoch and baseline
+windows, NRF profiles, screening settings, exclusion handling and Step 8
+selection rules.
+
+The core processing unit is one analysed event-channel instance. NOCI-Prem
+recordings remain separate through Steps 1–7. The selected within-subject
+median is introduced only by its Step 8 export; it does not alter an earlier
+framework input, screening unit or output. Group-level inference requires one
+prespecified participant-level contribution or an analysis that accounts for
+repeated observations.
+
+Source data, manual screening, figures and final statistical interpretation
+remain human-reviewed scientific inputs. A successful script or regression
+test establishes technical behaviour; it does not replace those decisions.
+
+## Tests
+
+`tests/run_all_tests.m` uses synthetic EEG fixtures only. It exercises the
+preprocessing, response, jitter and QC contracts, all six bundled templates,
+path precedence, local template binding and the public APIs in the verified
+MATLAB/EEGLAB environment. It does not read project datasets or run a numbered
+workflow script.
+
+From MATLAB, call the runner with explicit roots:
+
+```matlab
+addpath(fullfile(strasbourgRoot, 'tests'), '-begin');
+results = run_all_tests(strasbourgRoot, eeglabRoot);
+assert(results.passed);
+```
+
+The static repository checks can be run from the checkout root:
+
+```sh
+./tests/run_static_checks.sh
+```
 
 ## License
 

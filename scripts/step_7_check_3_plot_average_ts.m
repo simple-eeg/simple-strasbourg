@@ -46,8 +46,24 @@ clear; clc;
 baseDir      = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 functionsDir = fullfile(baseDir, 'functions');
 
-if exist(functionsDir, 'dir')
-    addpath(functionsDir);
+assert(isfolder(functionsDir), 'Missing functions folder: %s', functionsDir);
+addpath(functionsDir, '-begin');
+clear NRFUtils ts_average_simple ts_average_NRFshifted ts_average_woody ts_nrf_overlay
+rehash path
+requiredLocalFunctions = { ...
+    'NRFUtils', ...
+    'ts_average_simple', ...
+    'ts_average_NRFshifted', ...
+    'ts_average_woody', ...
+    'ts_nrf_overlay' ...
+    };
+for functionIndex = 1:numel(requiredLocalFunctions)
+    functionName = requiredLocalFunctions{functionIndex};
+    expectedFunction = fullfile(functionsDir, [functionName, '.m']);
+    resolvedFunction = which(functionName);
+    assert(strcmp(resolvedFunction, expectedFunction), ...
+        '%s must resolve to this repository: expected %s, got %s', ...
+        functionName, expectedFunction, resolvedFunction);
 end
 
 screeningDir      = fullfile(baseDir, 'data', 'summary', 'screening');
@@ -96,12 +112,13 @@ getNRFOverlays  = true;
 plotNRFOverlays = true;
 
 % Which NRFs to compute overlay time series for (0–N entries allowed).
+% Each entry may be a bundled logical basename or an explicit MAT-file path.
 % Strasbourg uses only the preterm noxious template for this route.
 overlayNRFNames_to_compute = [ ...
     "noxious_preterm_NRF_500Hz" ...
     ];
 
-% Which NRF overlays to plot (must be a subset of overlayNRFNames_to_compute)
+% Which NRF overlays to plot (must resolve to a subset of the computed templates)
 overlayNRFNames_to_plot = [ ...
     "noxious_preterm_NRF_500Hz" ...
     ];
@@ -134,8 +151,8 @@ overlayColours.noxious_preterm_NRF_500Hz = [1 0 0];             % red
 averagingApproach          = lower(string(averagingApproach));
 aggregator                 = lower(string(aggregator));
 shiftNRFName               = string(shiftNRFName);
-overlayNRFNames_to_compute = string(overlayNRFNames_to_compute(:));
-overlayNRFNames_to_plot    = string(overlayNRFNames_to_plot(:));
+overlayNRFReferences_to_compute = string(overlayNRFNames_to_compute(:));
+overlayNRFReferences_to_plot    = string(overlayNRFNames_to_plot(:));
 
 if ~(isscalar(channelFilter) && strlength(strtrim(string(channelFilter))) > 0)
     error('Config error: channelFilter must be one non-empty label.');
@@ -173,18 +190,50 @@ if ~getNRFOverlays && plotNRFOverlays
 end
 
 if getNRFOverlays
-    overlayNRFNames_to_compute = unique(overlayNRFNames_to_compute, 'stable');
+    overlayNRFReferences_to_compute = unique(overlayNRFReferences_to_compute, 'stable');
+    if any(ismissing(overlayNRFReferences_to_compute)) || ...
+            any(strlength(strtrim(overlayNRFReferences_to_compute)) == 0)
+        error('Config error: overlayNRFNames_to_compute must contain only nonblank template references.');
+    end
+    if any(ismissing(overlayNRFReferences_to_plot)) || ...
+            any(strlength(strtrim(overlayNRFReferences_to_plot)) == 0)
+        error('Config error: overlayNRFNames_to_plot must contain only nonblank template references.');
+    end
 
-    if ~isempty(overlayNRFNames_to_plot)
-        bad = overlayNRFNames_to_plot(~ismember(overlayNRFNames_to_plot, overlayNRFNames_to_compute));
-        if ~isempty(bad)
-            error('Config error: overlayNRFNames_to_plot contains names not in overlayNRFNames_to_compute: %s', ...
-                strjoin(cellstr(bad), ', '));
+    overlayNRFNames_to_compute = strings(size(overlayNRFReferences_to_compute));
+    overlayNRFFiles_to_compute = strings(size(overlayNRFReferences_to_compute));
+    for i = 1:numel(overlayNRFReferences_to_compute)
+        [logicalName, templateFile] = NRFUtils.resolveTemplateFile( ...
+            overlayNRFReferences_to_compute(i), baseDir);
+        overlayNRFNames_to_compute(i) = string(logicalName);
+        overlayNRFFiles_to_compute(i) = string(templateFile);
+    end
+    if numel(unique(overlayNRFNames_to_compute)) ~= numel(overlayNRFNames_to_compute)
+        error('Config error: computed NRF references must resolve to unique logical names.');
+    end
+
+    overlayNRFNames_to_plot = strings(size(overlayNRFReferences_to_plot));
+    overlayNRFFiles_to_plot = strings(size(overlayNRFReferences_to_plot));
+    for i = 1:numel(overlayNRFReferences_to_plot)
+        [logicalName, templateFile] = NRFUtils.resolveTemplateFile( ...
+            overlayNRFReferences_to_plot(i), baseDir);
+        overlayNRFNames_to_plot(i) = string(logicalName);
+        overlayNRFFiles_to_plot(i) = string(templateFile);
+        computeIndex = find(overlayNRFNames_to_compute == overlayNRFNames_to_plot(i));
+        if isempty(computeIndex)
+            error('Config error: overlayNRFNames_to_plot contains a template not in overlayNRFNames_to_compute: %s', ...
+                overlayNRFNames_to_plot(i));
+        end
+        if overlayNRFFiles_to_compute(computeIndex) ~= overlayNRFFiles_to_plot(i)
+            error(['Config error: plotted and computed NRF references share logical name "%s" ', ...
+                'but resolve to different template files.'], overlayNRFNames_to_plot(i));
         end
     end
 else
     overlayNRFNames_to_compute = strings(0,1);
+    overlayNRFFiles_to_compute = strings(0,1);
     overlayNRFNames_to_plot    = strings(0,1);
+    overlayNRFFiles_to_plot    = strings(0,1);
 end
 
 if averagingApproach == "nrfshifted" && ...
@@ -768,7 +817,13 @@ if getNRFOverlays && ~isempty(overlayNRFNames_to_compute)
         fit_time_ms = fit_time_map.(nameChar);
         jitter_ms   = jitter_map.(nameChar);
 
-        [overlay_ts, fitStruct] = ts_nrf_overlay(ts_avg, thisNRF, times_ms, fit_time_ms, jitter_ms);
+        templateFile = overlayNRFFiles_to_compute(i);
+        [overlay_ts, fitStruct] = ts_nrf_overlay( ...
+            ts_avg, templateFile, times_ms, fit_time_ms, jitter_ms);
+        assert(strcmp(fitStruct.nrfName, nameChar) && ...
+            strcmp(fitStruct.nrfFile, char(templateFile)), ...
+            'Internal error: NRF overlay provenance does not match the resolved request for %s.', ...
+            nameChar);
 
         overlayTS.(nameChar)   = overlay_ts;
         overlayFits.(nameChar) = fitStruct;

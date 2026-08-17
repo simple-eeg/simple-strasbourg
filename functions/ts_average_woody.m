@@ -78,7 +78,6 @@ addParameter(p, 'SRate', []);
 addParameter(p, 'ROI', [0 1000]);             % ms
 addParameter(p, 'MaxShiftMs', 50);            % ms
 addParameter(p, 'MaxIterations', 100);        % positive integer safety cap
-addParameter(p, 'Iterations', []);            % recognised only for an actionable migration error
 addParameter(p, 'Aggregator', "mean");        % for final average
 addParameter(p, 'SmoothingWindowMs', 0);      % for final average
 
@@ -91,12 +90,6 @@ W_ms     = p.Results.MaxShiftMs;
 Kmax     = p.Results.MaxIterations;
 agg      = lower(string(p.Results.Aggregator));
 win_ms   = p.Results.SmoothingWindowMs;
-
-if ~any(strcmp('Iterations', p.UsingDefaults))
-    error('ts_average_woody:LegacyIterationsUnsupported', ...
-        ['The legacy ''Iterations'' option specified a fixed iteration count and is no longer supported. ', ...
-         'Use ''MaxIterations'' to set the safety cap for exact fixed-point convergence.']);
-end
 
 % ----- Validate required NVs (TimesMs, SRate) -----
 if ~(isnumeric(times_ms) && isreal(times_ms) && isvector(times_ms) && numel(times_ms) == T)

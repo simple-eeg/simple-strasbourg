@@ -1,0 +1,36 @@
+{
+  "schema": "simple-scientific-oracle-manifest-v1",
+  "environment": {
+    "matlab": "26.1.0.3312084 (R2026a) Update 4",
+    "matlab_release": "2026a",
+    "eeglab": "2026.0.0",
+    "host": "macOS 26.6.1 build 25G76 arm64"
+  },
+  "comparison": {
+    "exact_behaviour": "strict isequaln",
+    "absolute_tolerance": 0,
+    "relative_tolerance": 0,
+    "supplementary_analytic_absolute_floor": 1e-12,
+    "supplementary_analytic_relative_tolerance": 1e-10
+  },
+  "case_counts": {
+    "preprocessing": 30,
+    "response": 17,
+    "jitter": 11,
+    "quality_control_coordinator": 9,
+    "quality_control_direct": 275,
+    "templates": 6
+  },
+  "fixture": {
+    "path": "tests/fixtures/simple_scientific_oracle_v1.mat",
+    "bytes": 5157895,
+    "sha256": "5477d510e9d321c26ce47ab14d13f335b79400285c0615860488d219b40bf547"
+  },
+  "boundaries": {
+    "synthetic_only": true,
+    "workflow_scripts_run": 0,
+    "real_eeg_files_read": 0,
+    "university_server_accesses": 0,
+    "dependency_updates": 0
+  }
+}

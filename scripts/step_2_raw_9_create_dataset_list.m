@@ -64,7 +64,7 @@ end
 try
     opts = setvartype(opts, REQ_COLS, 'string');
 catch
-    % Fallback for older MATLABs: set VariableTypes by index
+    % Set VariableTypes by index if name-based assignment is unavailable.
     varTypes = opts.VariableTypes;
     for i = 1:numel(REQ_COLS)
         idx = find(strcmp(opts.VariableNames, REQ_COLS{i}), 1, 'first');

@@ -37,7 +37,7 @@ end
 try
     content = fileread(eventFile);
 catch
-    % Fallback compatible with older MATLABs
+    % Use the explicit file reader if fileread is unavailable.
     fid = fopen(eventFile, 'rt');
     if fid < 0, error('Failed to open event file: %s', eventFile); end
     c = textscan(fid, '%s', 'Whitespace', '', 'EndOfLine', '§');

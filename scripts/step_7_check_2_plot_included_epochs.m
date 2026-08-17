@@ -26,7 +26,8 @@
 %        PLOT.seriesNames: [1 x n_series] (EEG + NRFName list)
 %        PLOT.epochMeta  : table (one row per item)
 %        PLOT.plotTitle  : [n_items x 1] subplot titles
-%        PLOT.selection  : requested route and missing-channel identities
+%        PLOT.selection  : requested route, canonical NRF template files and
+%                          missing-channel identities
 %   3) Sort items by: subjectID, sessionID, runID, epoch_index (numeric), channel
 %   4) Clear everything except PLOT.
 %   5) Set plot styling variables (user-editable) then plot (3×3 paging).
@@ -55,21 +56,25 @@ epochsMatPath = fullfile(pooledDir, 'pooled_screened_eeg_epochs.mat');
 nrfCsvPath    = fullfile(pooledDir, 'pooled_screened_eeg_nrf_features.csv');
 
 functionsFolder = fullfile(baseDir, 'functions');
-if exist(functionsFolder, 'dir')
-    addpath(functionsFolder);
-end
-
 assert(isfile(epochsMatPath), 'Missing file: %s', epochsMatPath);
-developerRoot = fileparts(baseDir);
 assert(is_local_child(baseDir, pooledDir) && ...
     is_local_child(baseDir, epochsMatPath) && ...
     is_local_child(baseDir, nrfCsvPath) && ...
     is_local_child(baseDir, functionsFolder), ...
     'Strasbourg inputs, functions, and prospective log/output paths must remain local.');
 
-% Launch EEGLAB interactively to ensure SIMPLE plugin paths (incl. NRFs) are on the MATLAB path.
-% Do NOT use eeglab nogui here.
+% Launch EEGLAB interactively, then make this repository's functions
+% authoritative over any same-named function on another path entry.
 eeglab;
+assert(isfolder(functionsFolder), 'Missing functions folder: %s', functionsFolder);
+addpath(functionsFolder, '-begin');
+clear NRFUtils
+rehash path
+expectedNRFUtils = fullfile(functionsFolder, 'NRFUtils.m');
+resolvedNRFUtils = which('NRFUtils');
+assert(strcmp(resolvedNRFUtils, expectedNRFUtils), ...
+    'NRFUtils must resolve to this repository: expected %s, got %s', ...
+    expectedNRFUtils, resolvedNRFUtils);
 
 %% 2) User-configurable parameters (selection only; plot styling comes later)
 % Filter mode (choose exactly one)
@@ -101,16 +106,25 @@ assert(islogical(overlayNRF) && isscalar(overlayNRF), ...
     'overlayNRF must be a logical scalar.');
 
 if overlayNRF
-    requestedNames = string(nrfNamesRequested(:));
-    assert(~isempty(requestedNames) && numel(requestedNames) <= 3 && ...
-        all(~ismissing(requestedNames)) && all(strlength(strtrim(requestedNames)) > 0), ...
+    requestedReferences = string(nrfNamesRequested(:));
+    assert(~isempty(requestedReferences) && numel(requestedReferences) <= 3 && ...
+        all(~ismissing(requestedReferences)) && all(strlength(strtrim(requestedReferences)) > 0), ...
         'nrfNamesRequested must contain one to three nonblank names when overlayNRF is true.');
-    requestedNames = strtrim(requestedNames);
+    requestedReferences = strtrim(requestedReferences);
+    requestedNames = strings(size(requestedReferences));
+    templateFiles = strings(size(requestedReferences));
+    for j = 1:numel(requestedReferences)
+        [logicalName, templateFile] = NRFUtils.resolveTemplateFile( ...
+            requestedReferences(j), baseDir);
+        requestedNames(j) = string(logicalName);
+        templateFiles(j) = string(templateFile);
+    end
     assert(numel(unique(requestedNames)) == numel(requestedNames), ...
-        'nrfNamesRequested must not contain duplicate names.');
+        'nrfNamesRequested must resolve to unique logical NRF names.');
     nrfNamesRequested = cellstr(requestedNames);
 else
     requestedNames = strings(0, 1);
+    templateFiles = strings(0, 1);
     nrfNamesRequested = {};
 end
 
@@ -329,27 +343,26 @@ end
 % Each template file must contain NRF (vector) and fs (Hz).
 if overlayNRF
     nReq = numel(nrfNamesRequested);
-    nrfTemplates = struct('name', cell(nReq,1), 'NRF', [], 'fs', NaN, 'L', NaN, 'meanNRF', NaN);
+    nrfTemplates = struct('name', cell(nReq,1), 'file', cell(nReq,1), ...
+        'NRF', [], 'fs', NaN, 'L', NaN, 'meanNRF', NaN);
 
     for j = 1:nReq
         nm = string(nrfNamesRequested{j});
         nrfTemplates(j).name = nm;
-
-        nrfFile = which(char(nm + ".mat"));
-        assert(~isempty(nrfFile), 'NRF template not found on path: %s.mat', nm);
-        assert(is_local_child(developerRoot, nrfFile), ...
-            'Resolved NRF template must remain beneath the local simple-eeg development root: %s', nrfFile);
+        nrfFile = char(templateFiles(j));
+        nrfTemplates(j).file = nrfFile;
 
         T = load(nrfFile);
         assert(isfield(T, 'NRF') && isfield(T, 'fs'), 'NRF file must contain variables NRF and fs: %s', nrfFile);
 
+        assert(isnumeric(T.NRF) && isreal(T.NRF) && isvector(T.NRF) && ...
+            numel(T.NRF) >= 2 && all(isfinite(T.NRF(:))), ...
+            'NRF must be a finite real numeric vector in: %s', nrfFile);
+        assert(isnumeric(T.fs) && isreal(T.fs) && isscalar(T.fs) && ...
+            isfinite(T.fs) && T.fs > 0, 'Bad fs in: %s', nrfFile);
+
         nrfVec = T.NRF(:);
         fs = double(T.fs);
-
-        assert(isnumeric(nrfVec) && isreal(nrfVec) && numel(nrfVec) >= 2 && ...
-            all(isfinite(nrfVec)), 'NRF must be a finite real numeric vector in: %s', nrfFile);
-        assert(isnumeric(T.fs) && isreal(T.fs) && isscalar(T.fs) && ...
-            isfinite(fs) && fs > 0, 'Bad fs in: %s', nrfFile);
 
         nrfTemplates(j).NRF = double(nrfVec);
         nrfTemplates(j).fs  = fs;
@@ -394,6 +407,7 @@ PLOT.selection = struct( ...
     'channelRequested', channelRequested, ...
     'overlayNRF', overlayNRF, ...
     'nrfNamesRequested', requestedNames, ...
+    'nrfTemplateFiles', templateFiles, ...
     'missingOverlayPolicy', "error", ...
     'datasetsMissingRequestedChannel', missingRequestedChannel);
 

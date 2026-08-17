@@ -40,6 +40,7 @@ function [overlay_ts, fit] = ts_nrf_overlay(y_ts, nrfName, times_ms, fit_time_ms
 %
 %   fit         : struct with provenance and fit metrics, including:
 %       method          : 'ols' or 'fgls_ar1'
+%       nrfName         : validated logical NRF template basename
 %       nrfFile         : full path to the NRF .mat file used
 %       fs              : NRF sampling rate (Hz)
 %       dt_ms           : median time step (ms)
@@ -64,9 +65,9 @@ function [overlay_ts, fit] = ts_nrf_overlay(y_ts, nrfName, times_ms, fit_time_ms
 %       r_max           : maximum Pearson correlation over all candidate lags
 %
 % Notes
-%   - The function tries to locate the NRF file. If not found, it will attempt
-%     to call start_simple_headless (if available) once to initialise paths,
-%     then retry. If still missing, it errors with guidance.
+%   - Logical basenames resolve only against this repository's NRFs folder.
+%     Explicit template paths remain supported. Ambient MATLAB-path lookup is
+%     deliberately not used.
 %   - To switch between OLS and fGLS AR(1), edit the local 'fit_method' variable
 %     below. The external interface is unchanged.
 
@@ -144,40 +145,9 @@ end
 % -------------------------------------------------------------------------
 % 2) Locate and load NRF template
 % -------------------------------------------------------------------------
-nrfFile = "";
-
-% If a path or .mat is provided, use it as-is (append .mat if needed)
-if contains(nrfName, filesep) || endsWith(nrfName, ".mat", 'IgnoreCase', true)
-    candidate = char(nrfName);
-    if ~endsWith(candidate, '.mat', 'IgnoreCase', true)
-        candidate = [candidate '.mat'];
-    end
-    if exist(candidate, 'file')
-        nrfFile = string(candidate);
-    end
-else
-    % Base name only: try which
-    w = which(char(nrfName + ".mat"));
-    if ~isempty(w); nrfFile = string(w); end
-end
-
-% If not found, try start_simple_headless (if available), then retry
-if nrfFile == ""
-    if exist('start_simple_headless', 'file')
-        try
-            start_simple_headless('check', false);
-        catch %#ok<CTCH>
-            % ignore initialisation errors; we'll fail gracefully below if still not found
-        end
-        w = which(char(nrfName + ".mat"));
-        if ~isempty(w); nrfFile = string(w); end
-    end
-end
-
-if nrfFile == ""
-    error('ts_nrf_overlay:NRFNotFound', ...
-        'NRF "%s" not found. Ensure the NRF .mat is on the path (e.g., call start_simple_headless), or pass a full path.', nrfName);
-end
+functionsFolder = fileparts(mfilename('fullpath'));
+repositoryRoot = fileparts(functionsFolder);
+[logicalNRFName, nrfFile] = NRFUtils.resolveTemplateFile(nrfName, repositoryRoot);
 
 S = load(nrfFile);
 if ~isfield(S, 'NRF') || ~isfield(S, 'fs')
@@ -382,7 +352,8 @@ x_shift_ms      = x_shift_samples * dt_med;
 
 fit = struct();
 fit.method          = char(lower(string(fit_method)));
-fit.nrfFile         = char(nrfFile);
+fit.nrfName         = logicalNRFName;
+fit.nrfFile         = nrfFile;
 fit.fs              = fs;
 fit.dt_ms           = dt_med;
 fit.anchor_ms       = fit_time_ms;
