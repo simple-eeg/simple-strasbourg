@@ -825,13 +825,19 @@ standardised_events = require_tokens(
         "data/info_prelim/event_types_standardised/<stem>_event_types_standardised.csv",
         "outCsv = fullfile(eventsFolder, [stem '_event_types_standardised.csv']);",
     ])
-if "_eeg_event_types_standardised.csv']);" in standardised_events:
-    raise AssertionError("standardised-event output suffix repeats the BIDS _eeg stem")
+output_assignments = [
+    line.strip() for line in standardised_events.splitlines()
+    if line.strip().startswith("outCsv = fullfile(eventsFolder")
+]
+if output_assignments != [
+        "outCsv = fullfile(eventsFolder, [stem '_event_types_standardised.csv']);"]:
+    raise AssertionError("standardised-event output assignment is not unique and exact")
 fixture_stem = pathlib.PurePosixPath(
     "sub-TEST_ses-TEST_run-stim2_eeg.set").stem
 fixture_output = fixture_stem + "_event_types_standardised.csv"
 expected_output = "sub-TEST_ses-TEST_run-stim2_eeg_event_types_standardised.csv"
-if fixture_output != expected_output or "_eeg_eeg_" in fixture_output:
+modality_count = pathlib.PurePosixPath(fixture_output).stem.split("_").count("eeg")
+if fixture_output != expected_output or modality_count != 1:
     raise AssertionError(
         f"standardised-event filename contract failed: {fixture_output}")
 
