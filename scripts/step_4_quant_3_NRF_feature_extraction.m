@@ -41,10 +41,12 @@ families = {'early_NRF','noxious_NRF','noxious_preterm_NRF'};
 %% --- Initialize EEGLAB and repository-local functions ---
 eeglab;
 addpath(functionsFolder, '-begin');
-clear estimate_response jittercorrect NRFUtils;
+clear estimate_response jittercorrect NRFUtils ...
+    validate_dataset_registry_paths;
 rehash;
 
-requiredLocalFunctions = {'estimate_response', 'jittercorrect', 'NRFUtils'};
+requiredLocalFunctions = {'estimate_response', 'jittercorrect', 'NRFUtils', ...
+    'validate_dataset_registry_paths'};
 for functionIdx = 1:numel(requiredLocalFunctions)
     functionName = requiredLocalFunctions{functionIdx};
     expectedFunction = fullfile(functionsFolder, [functionName, '.m']);
@@ -59,6 +61,26 @@ profiles = NRFUtils.validateProfiles(profiles); % adds p.proj_scalar and enforce
 %% --- Read CSV mapping: Type -> profileName (per family) ---
 map = NRFUtils.readEpochTypeMapping(epoch_csv, profiles, families);
 
+% Resolve every template referenced by the mapping before any dataset can be
+% modified. Profiles may share a template, so preflight each basename once.
+mappedProfileNames = {};
+for f = 1:numel(families)
+    mappedProfileNames = [mappedProfileNames, values(map.(families{f}))]; %#ok<AGROW>
+end
+mappedProfileNames = unique(mappedProfileNames, 'stable');
+activeNRFNames = cell(size(mappedProfileNames));
+for pIdx = 1:numel(mappedProfileNames)
+    activeNRFNames{pIdx} = profiles.(mappedProfileNames{pIdx}).NRFName;
+end
+activeNRFNames = unique(activeNRFNames, 'stable');
+for nIdx = 1:numel(activeNRFNames)
+    [logicalName, templateFile] = NRFUtils.resolveTemplateFile( ...
+        activeNRFNames{nIdx}, baseDir);
+    assert(strcmp(logicalName, activeNRFNames{nIdx}), ...
+        'Configured NRFName must be a logical basename without a path or extension.');
+    fprintf('NRF template: %s -> %s\n', logicalName, templateFile);
+end
+
 %% --- Load EEG dataset list ---
 fprintf('Loading dataset list: %s\n', dataListPath);
 opts = detectImportOptions(dataListPath, 'PreserveVariableNames', true, 'TextType', 'string', 'Delimiter', ',');
@@ -72,6 +94,8 @@ missingCols = setdiff(needCols, T.Properties.VariableNames);
 if ~isempty(missingCols)
     error('Missing required columns in dataset_list.csv: %s', strjoin(missingCols, ', '));
 end
+
+validate_dataset_registry_paths(T, baseDir, 'processed');
 
 %% --- Process datasets ---
 N = height(T);
@@ -147,8 +171,15 @@ for i = 1:N
     missing_str = ''; if ~isempty(missing), missing_str = strjoin(missing, ' , '); end
     fprintf('   channels — present: %s | missing: %s\n', present_str, missing_str);
 
-    % --- Clear previous NRF results (keep QC subtree intact) ---
+    % --- Detect and clear previous NRF results (keep QC subtree intact) ---
+    had_previous_nrf = false;
     for e = 1:nEpochs
+        if isfield(EEG.epoch(e), 'NRF') && ~isempty(EEG.epoch(e).NRF)
+            previous_nrf = EEG.epoch(e).NRF;
+            if ~isstruct(previous_nrf) || ~isempty(fieldnames(previous_nrf))
+                had_previous_nrf = true;
+            end
+        end
         EEG.epoch(e).NRF = struct();
     end
 
@@ -220,8 +251,8 @@ for i = 1:N
         end
     end
 
-    % Save in place if any fits were written
-    if fits_done > 0
+    % Save new fits, or persist the removal of stale prior NRF results.
+    if fits_done > 0 || had_previous_nrf
         EEG.filepath = setDir;
         EEG.filename = setFile;
         pop_saveset(EEG, 'filename', setFile, 'filepath', setDir, 'savemode', 'resave');

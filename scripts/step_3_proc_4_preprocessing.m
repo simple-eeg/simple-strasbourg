@@ -44,11 +44,12 @@ eeglab;
 % Bind this script to the functions in this repository after EEGLAB has
 % finished adding its own folders and plugins to the MATLAB path.
 addpath(functionsDir, '-begin');
-clear preproc delete_unwanted_events add_offset_events;
+clear preproc delete_unwanted_events add_offset_events ...
+    validate_dataset_registry_paths;
 rehash;
 
 requiredLocalFunctions = {'preproc', 'delete_unwanted_events', ...
-    'add_offset_events'};
+    'add_offset_events', 'validate_dataset_registry_paths'};
 for functionIdx = 1:numel(requiredLocalFunctions)
     functionName = requiredLocalFunctions{functionIdx};
     expectedFunction = fullfile(functionsDir, [functionName, '.m']);
@@ -105,6 +106,8 @@ miss = setdiff(need, T.Properties.VariableNames);
 if ~isempty(miss)
     error('Missing required columns in dataset_list.csv: %s', strjoin(miss, ', '));
 end
+
+validate_dataset_registry_paths(T, baseDir, 'processed');
 
 N = height(T);
 rowsToDo  = (1:N).';
@@ -380,9 +383,13 @@ for idx = 1:totalToDo
 
         eff = struct();
         % Block A (continuous cleaning)
-        eff.reref              = logical(PreprocOptions.reref);
-        eff.refchan            = PreprocOptions.refchan;
-        eff.resample           = logical(PreprocOptions.resample);
+        eff.reref              = logical(optsA.reref);
+        if optsA.reref
+            eff.refchan        = optsA.refchan;
+        else
+            eff.refchan        = {};
+        end
+        eff.resample           = logical(optsA.resample);
         eff.srate              = PreprocOptions.srate;
         eff.final_srate        = EEG_pre.srate;
         eff.filter             = logical(PreprocOptions.filter);

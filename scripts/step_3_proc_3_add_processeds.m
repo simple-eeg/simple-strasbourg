@@ -12,13 +12,25 @@
 %   - Idempotent: safe to re-run; columns are re-derived and re-appended at the end
 %   - No folder creation here (that will happen in preprocessing)
 %   - Expects the source columns to be present and non-empty for all rows
+%   - Validates every input and derived output before rewriting the table
 
 log_command_window('start');
 clear; clc;
 
 %% Paths
 baseDir      = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
+functionsDir = fullfile(baseDir, 'functions');
 fileListPath = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
+
+addpath(functionsDir, '-begin');
+clear validate_dataset_registry_paths;
+rehash;
+expectedValidator = fullfile(functionsDir, 'validate_dataset_registry_paths.m');
+resolvedValidator = which('validate_dataset_registry_paths');
+assert(~isempty(resolvedValidator) && ...
+    strcmp(char(java.io.File(resolvedValidator).getCanonicalPath()), ...
+           char(java.io.File(expectedValidator).getCanonicalPath())), ...
+    'Repository-local dataset-registry validator did not resolve canonically.');
 
 %% Load dataset_list.csv
 fprintf('Loading: %s\n', fileListPath);
@@ -35,6 +47,8 @@ missingCols = setdiff(requiredCols, T.Properties.VariableNames);
 if ~isempty(missingCols)
     error('Missing required columns in dataset_list.csv: %s', strjoin(missingCols, ', '));
 end
+
+validate_dataset_registry_paths(T, baseDir, 'raw');
 
 N = height(T);
 
@@ -60,11 +74,6 @@ for r = 1:N
     % Prefix swap only: '^data/raw' -> 'data/processed'
     dstPath = regexprep(srcPath, '^data/raw', 'data/processed');
 
-    % Optional sanity: warn if prefix wasn't matched (path didn't start with data/raw)
-    if ~startsWith(srcPath, "data/raw")
-        fprintf('[warn] Row %d: path_raw does not start with "data/raw": %s\n', r, srcPath);
-    end
-
     path_processed(r) = dstPath;
 
     checked = checked + 1;
@@ -78,6 +87,8 @@ if ~isempty(toRemove)
 end
 T.path_processed    = path_processed;
 T.EEGfile_processed = EEGfile_processed;
+
+validate_dataset_registry_paths(T, baseDir, 'processed');
 
 %% Save
 writetable(T, fileListPath);

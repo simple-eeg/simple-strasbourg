@@ -33,6 +33,7 @@ clear; clc;
 
 baseDir  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 fileList = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
+functionsFolder = fullfile(baseDir, 'functions');
 
 % Explicit, case-sensitive lists the user controls:
 
@@ -69,6 +70,15 @@ selected_nrf_names = { ...
 %% 1) Initialize EEGLAB — read-only use
 eeglab;
 assert(exist('pop_loadset','file') == 2, 'EEGLAB ''pop_loadset'' not found on the MATLAB path.');
+addpath(functionsFolder, '-begin');
+clear validate_dataset_registry_paths;
+rehash;
+expectedValidator = fullfile(functionsFolder, 'validate_dataset_registry_paths.m');
+resolvedValidator = which('validate_dataset_registry_paths');
+assert(~isempty(resolvedValidator) && ...
+    strcmp(char(java.io.File(resolvedValidator).getCanonicalPath()), ...
+           char(java.io.File(expectedValidator).getCanonicalPath())), ...
+    'Repository-local dataset-registry validator did not resolve canonically.');
 
 %% 2) Read spreadsheet and validate required input columns
 
@@ -95,6 +105,8 @@ for i = 1:numel(need)
     T.(col) = string(T.(col));
     T.(col)(ismissing(T.(col))) = "";
 end
+
+validate_dataset_registry_paths(T, baseDir, 'summary');
 
 N = height(T);
 

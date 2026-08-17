@@ -69,6 +69,8 @@ Important public entry points include:
 - `quality_control_features` and its 11 `calc_*` feature calculators;
 - `estimate_response(EEG, options)` and `jittercorrect` for NRF estimation;
 - `NRFUtils` for configuration, mapping, template resolution and fit caching;
+- `validate_dataset_registry_paths` for fail-closed registry path and target
+  validation;
 - Curry/XDF conversion and event-reading functions;
 - time-series averaging, NRF-overlay and paired-effect helpers; and
 - diagnostics, plotting and save helpers used by the numbered scripts.
@@ -134,6 +136,17 @@ user-completed event and channel filters, applies configured latency
 corrections, and saves one-file EEGLAB datasets beneath `data/raw/`. The final
 `data_lists/dataset_list.csv` contains `subjectID`, `sessionID`, `runID`,
 `path_raw` and `EEGfile_raw` for recordings admitted to the framework.
+
+Each EEG filename must be a basename with the exact lowercase `.set`
+extension. Raw directories must be `data/raw` or descendants of it. Derived
+processed and summary directories must likewise be under the exact
+`data/processed` and `data/summary` roots. Paths must be non-empty
+project-relative forward-slash paths: absolute paths, traversal components,
+repeated separators, backslashes, path-like filenames and symlink-based canonical escapes
+are rejected. Processed dataset targets and the four per-dataset summary
+targets must be unique. Every registry path is validated before a governed write,
+so an invalid row stops the stage before the registry, a dataset or a summary
+output is changed.
 
 Manual checkpoints include completing `Type_new` mappings, reviewing filter
 fields and latency-correction flags, and checking the final event/channel
@@ -208,7 +221,8 @@ test establishes technical behaviour; it does not replace those decisions.
 
 `tests/run_all_tests.m` uses synthetic EEG fixtures only. It exercises the
 preprocessing, response, jitter and QC contracts, all six bundled templates,
-path precedence, local template binding and the public APIs in the verified
+registry paths, effective preprocessing provenance, stale-NRF clearing, path
+precedence, local template binding and the public APIs in the verified
 MATLAB/EEGLAB environment. It does not read project datasets or run a numbered
 workflow script.
 

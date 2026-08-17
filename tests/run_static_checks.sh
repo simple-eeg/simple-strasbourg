@@ -269,14 +269,14 @@ require(manifest.get("comparison_policy") == {
 
 catalog = manifest.get("test_catalog")
 coverage = manifest.get("coverage")
-require(isinstance(catalog, list) and len(catalog) == 37, "test catalog count differs")
-require(isinstance(coverage, list) and len(coverage) == 66, "coverage row count differs")
+require(isinstance(catalog, list) and len(catalog) == 40, "test catalog count differs")
+require(isinstance(coverage, list) and len(coverage) == 71, "coverage row count differs")
 catalog_ids = [item.get("id") for item in catalog]
 require(all(isinstance(x, str) and x for x in catalog_ids), "blank catalog id")
 require(len(catalog_ids) == len(set(catalog_ids)), "duplicate catalog id")
 catalog_by_id = {item["id"]: item for item in catalog}
 
-expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","delete_contracts","dependency_missing","dependency_present","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","templates_six_rates","warning_restoration"])
+expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","templates_six_rates","warning_restoration"])
 actual_keys = [row.get("requirement_key") for row in coverage]
 require(len(actual_keys) == len(set(actual_keys)), "duplicate requirement key")
 require(set(actual_keys) == expected_keys, "required coverage-key set differs")
@@ -360,7 +360,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"dcef9e0b597db19e492ff62af0f636c5d0fa3d6df2f8e497822522eea3e92d11","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"extended":120}
+expected_totals = {"runner_sha256":"5ae6bcd85751b902d1228eb4a175f6630ad67d775d9e41e4ce45c91cb28fa9ca","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"processing_state":9,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()
@@ -388,6 +388,10 @@ require(catalog_item("matlab.qc.coordinator.oracle")["expected_pass_count"] +
         expected_totals["qc"], "QC total differs")
 require(catalog_item("matlab.clean_api")["expected_pass_count"] ==
         expected_totals["clean_contract"], "clean-contract total differs")
+require(catalog_item("matlab.registry_paths")["expected_pass_count"] ==
+        expected_totals["registry"], "registry-path total differs")
+require(catalog_item("matlab.processing_state")["expected_pass_count"] ==
+        expected_totals["processing_state"], "processing-state total differs")
 
 oracle_path = root / "tests" / "fixtures" / "simple_scientific_oracle_v1.json"
 oracle_json = json.loads(oracle_path.read_text(encoding="utf-8"))
@@ -436,7 +440,7 @@ require(oracle_json["boundaries"] == {
     "university_server_accesses": 0,
     "dependency_updates": 0,
 }, "scientific-oracle boundaries differ")
-print("66 coverage rows; 37 named test groups; exact scientific-oracle cardinalities and binding")
+print("71 coverage rows; 40 named test groups; exact scientific-oracle cardinalities and binding")
 PY
 }
 
@@ -473,11 +477,12 @@ check_function_inventory() {
         ts_average_NRFshifted.m \
         ts_average_simple.m \
         ts_average_woody.m \
-        ts_nrf_overlay.m | LC_ALL=C sort > "$expected"
+        ts_nrf_overlay.m \
+        validate_dataset_registry_paths.m | LC_ALL=C sort > "$expected"
     git -C "$candidate" ls-files functions | sed 's#^functions/##' | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
-    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 30 ] || return 1
-    printf 'exact 30-function inventory'
+    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 31 ] || return 1
+    printf 'exact 31-function inventory'
 }
 
 check_template_inventory() {
@@ -521,6 +526,10 @@ required = {
     "functions/quality_control_features.m": [
         "function [EEG] = quality_control_features(EEG)",
     ],
+    "functions/validate_dataset_registry_paths.m": [
+        "function targets = validate_dataset_registry_paths(T, baseDir, stage)",
+        "SIMPLE:DatasetRegistry:CanonicalEscape",
+    ],
     "NRFs/nrf_config.ini": ["[term_foot_nox]"],
     "scripts/log_command_window.m": [
         "logsDir = fullfile(projectRoot, 'data', 'logs');",
@@ -528,6 +537,8 @@ required = {
     "tests/run_all_tests.m": [
         "function results = run_all_tests(repoRoot, eeglabRoot)",
         "simple_scientific_oracle_v1.mat",
+        "results.registry = run_dataset_registry_path_tests(repoRoot);",
+        "results.processing_state = run_processing_state_tests(repoRoot);",
     ],
 }
 for relative, anchors in required.items():
@@ -709,8 +720,32 @@ if opts_a != expected_a:
     raise AssertionError(f"optsA fields differ: {sorted(opts_a ^ expected_a)}")
 if opts_d != expected_d:
     raise AssertionError(f"optsD fields differ: {sorted(opts_d ^ expected_d)}")
-print("EEGLAB-before-local-path; no preproc shadow; stored provenance field; separate delete/offset mechanism; exact two preproc option blocks")
+effective_block = [
+    "eff.reref              = logical(optsA.reref);",
+    "if optsA.reref",
+    "eff.refchan        = optsA.refchan;",
+    "eff.refchan        = {};",
+    "eff.resample           = logical(optsA.resample);",
+]
+missing_effective = [token for token in effective_block if token not in text]
+if missing_effective:
+    raise AssertionError(
+        f"Step-3 effective provenance is not based on applied Block-A options: {missing_effective}")
+stale_requested = [
+    "eff.reref              = logical(PreprocOptions.reref);",
+    "eff.refchan            = PreprocOptions.refchan;",
+    "eff.resample           = logical(PreprocOptions.resample);",
+]
+present_stale = [token for token in stale_requested if token in text]
+if present_stale:
+    raise AssertionError(
+        f"Step-3 effective provenance still reports requested values: {present_stale}")
+print("EEGLAB-before-local-path; no preproc shadow; truthful stored provenance; separate delete/offset mechanism; exact two preproc option blocks")
 PY
+}
+
+check_processing_safety() {
+    python3 "$candidate/tests/check_processing_safety_contracts.py" "$candidate"
 }
 
 check_step5_4() {
@@ -841,6 +876,22 @@ if fixture_output != expected_output or modality_count != 1:
     raise AssertionError(
         f"standardised-event filename contract failed: {fixture_output}")
 
+step33 = require_tokens("scripts/step_3_proc_3_add_processeds.m", [
+    "functionsDir = fullfile(baseDir, 'functions');",
+    "clear validate_dataset_registry_paths;",
+    "expectedValidator = fullfile(functionsDir, 'validate_dataset_registry_paths.m');",
+    "resolvedValidator = which('validate_dataset_registry_paths');",
+    "char(java.io.File(resolvedValidator).getCanonicalPath())",
+    "validate_dataset_registry_paths(T, baseDir, 'raw');",
+    "validate_dataset_registry_paths(T, baseDir, 'processed');",
+])
+if step33.index("validate_dataset_registry_paths(T, baseDir, 'raw');") > \
+        step33.index("for r = 1:N"):
+    raise AssertionError("Step 3.3 validates raw registry paths after derivation")
+if step33.index("validate_dataset_registry_paths(T, baseDir, 'processed');") > \
+        step33.index("writetable(T, fileListPath);"):
+    raise AssertionError("Step 3.3 validates the candidate registry after writing it")
+
 step3 = require_tokens("scripts/step_3_proc_4_preprocessing.m", [
     "PreprocOptions.src_types    = {'cannula'};",
     "PreprocOptions.new_types    = {'cannula_prestim'};",
@@ -849,10 +900,87 @@ step3 = require_tokens("scripts/step_3_proc_4_preprocessing.m", [
     "PreprocOptions.epochlimpre_ms  = 200;",
     "PreprocOptions.epochlimpost_ms = 1200;",
     "EEG_pre.etc.simple.preproc = preprocProvenance;",
+    "'validate_dataset_registry_paths'",
+    "validate_dataset_registry_paths(T, baseDir, 'processed');",
 ])
-require_tokens("scripts/step_4_quant_1_QC_feature_extraction.m", [
+step34_validation = step3.index(
+    "validate_dataset_registry_paths(T, baseDir, 'processed');")
+for write_anchor in ("for idx = 1:totalToDo", "mkdir(outDir);", "pop_saveset("):
+    if step34_validation > step3.index(write_anchor):
+        raise AssertionError(
+            f"Step 3.4 validates the registry after governed anchor: {write_anchor}")
+step41 = require_tokens("scripts/step_4_quant_1_QC_feature_extraction.m", [
     "channels_of_interest = {'Cz','CZ'};",
+    "'validate_dataset_registry_paths'",
+    "validate_dataset_registry_paths(T, baseDir, 'processed');",
 ])
+step41_validation = step41.index(
+    "validate_dataset_registry_paths(T, baseDir, 'processed');")
+for write_anchor in ("for idx = 1:totalToDo", "pop_saveset("):
+    if step41_validation > step41.index(write_anchor):
+        raise AssertionError(
+            f"Step 4.1 validates the registry after governed anchor: {write_anchor}")
+step4_nrf = require_tokens("scripts/step_4_quant_3_NRF_feature_extraction.m", [
+    "had_previous_nrf = false;",
+    "if isfield(EEG.epoch(e), 'NRF') && ~isempty(EEG.epoch(e).NRF)",
+    "if ~isstruct(previous_nrf) || ~isempty(fieldnames(previous_nrf))",
+    "had_previous_nrf = true;",
+    "EEG.epoch(e).NRF = struct();",
+    "if fits_done > 0 || had_previous_nrf",
+    "mappedProfileNames = [mappedProfileNames, values(map.(families{f}))];",
+    "activeNRFNames{pIdx} = profiles.(mappedProfileNames{pIdx}).NRFName;",
+    "[logicalName, templateFile] = NRFUtils.resolveTemplateFile(",
+    "activeNRFNames{nIdx}, baseDir);",
+    "'validate_dataset_registry_paths'",
+    "validate_dataset_registry_paths(T, baseDir, 'processed');",
+])
+preflight_position = step4_nrf.index("mappedProfileNames = {};")
+list_position = step4_nrf.index("%% --- Load EEG dataset list ---")
+loop_position = step4_nrf.index("for i = 1:N")
+if not preflight_position < list_position < loop_position:
+    raise AssertionError(
+        "Step-4 all-template preflight does not precede list loading and dataset writes")
+step43_validation = step4_nrf.index(
+    "validate_dataset_registry_paths(T, baseDir, 'processed');")
+for write_anchor in ("for i = 1:N", "pop_saveset("):
+    if step43_validation > step4_nrf.index(write_anchor):
+        raise AssertionError(
+            f"Step 4.3 validates the registry after governed anchor: {write_anchor}")
+step51 = require_tokens("scripts/step_5_sum_1_add_summaries.m", [
+    "functionsDir = fullfile(baseDir, 'functions');",
+    "clear validate_dataset_registry_paths;",
+    "expectedValidator = fullfile(functionsDir, 'validate_dataset_registry_paths.m');",
+    "resolvedValidator = which('validate_dataset_registry_paths');",
+    "char(java.io.File(resolvedValidator).getCanonicalPath())",
+    "validate_dataset_registry_paths(T, baseDir, 'processed');",
+    "validate_dataset_registry_paths(T, baseDir, 'summary');",
+])
+if step51.index("validate_dataset_registry_paths(T, baseDir, 'processed');") > \
+        step51.index("for r = 1:N"):
+    raise AssertionError("Step 5.1 validates processed paths after derivation")
+summary_validation = step51.index(
+    "validate_dataset_registry_paths(T, baseDir, 'summary');")
+if summary_validation < step51.index("T.path_summary = path_summary;") or \
+        summary_validation > step51.index("writetable(T, fileListPath);"):
+    raise AssertionError("Step 5.1 does not validate candidate summary targets before writing")
+obsolete_step51 = [token for token in ("skipped_empty", "warned") if token in step51]
+if obsolete_step51:
+    raise AssertionError(f"Step 5.1 retains obsolete skip/warn counters: {obsolete_step51}")
+step52 = require_tokens("scripts/step_5_sum_2_summarise_individual.m", [
+    "functionsFolder = fullfile(baseDir, 'functions');",
+    "addpath(functionsFolder, '-begin');",
+    "clear validate_dataset_registry_paths;",
+    "expectedValidator = fullfile(functionsFolder, 'validate_dataset_registry_paths.m');",
+    "resolvedValidator = which('validate_dataset_registry_paths');",
+    "char(java.io.File(resolvedValidator).getCanonicalPath())",
+    "validate_dataset_registry_paths(T, baseDir, 'summary');",
+])
+step52_validation = step52.index(
+    "validate_dataset_registry_paths(T, baseDir, 'summary');")
+for write_anchor in ("for r = 1:N", "mkdir(outDir);", "save(out_epochs", "writetable("):
+    if step52_validation > step52.index(write_anchor):
+        raise AssertionError(
+            f"Step 5.2 validates the registry after governed anchor: {write_anchor}")
 require_tokens("scripts/step_5_sum_4_plot_epochs.m", [
     'filterValue = "cannula";', 'channelRequested = "Cz";',
     "'noxious_preterm_NRF_500Hz'",
@@ -948,6 +1076,7 @@ check_readme() {
         '`robustfit`' \
         '`corr`' \
         'CleanLine is optional' \
+        'Every registry path is validated before a governed write' \
         'tests/run_all_tests.m' \
         'run_all_tests(strasbourgRoot, eeglabRoot);' \
         "tests/run_static_checks.sh"; do
@@ -1021,9 +1150,12 @@ root = pathlib.Path(sys.argv[1])
 issues = []
 checked = []
 expected_callers = {
+    "step_3_proc_3_add_processeds.m",
     "step_3_proc_4_preprocessing.m",
     "step_4_quant_1_QC_feature_extraction.m",
     "step_4_quant_3_NRF_feature_extraction.m",
+    "step_5_sum_1_add_summaries.m",
+    "step_5_sum_2_summarise_individual.m",
     "step_5_sum_4_plot_epochs.m",
     "step_7_check_2_plot_included_epochs.m",
     "step_7_check_3_plot_average_ts.m",
@@ -1039,7 +1171,8 @@ for path in (root / "scripts").glob("*.m"):
     eeglab = re.search(r"(?m)^\s*eeglab\s*;", text)
     if eeglab and eeglab.start() > add.start():
         issues.append(f"{path.name}: EEGLAB starts after local addpath")
-    has_named_assertion = "which(" in text and re.search(r"expected(?:Function|NRFUtils|NRFUtilsFile)", text)
+    has_named_assertion = "which(" in text and re.search(
+        r"expected(?:Function|NRFUtils|NRFUtilsFile|Validator)", text)
     has_shared_assertion = "assert_local_helper_paths(" in text
     if not (has_named_assertion or has_shared_assertion):
         issues.append(f"{path.name}: no canonical local-function assertion")
@@ -1076,6 +1209,7 @@ run_check 'static.git.fresh_clone' check_fresh_clone
 run_check 'static.repository.logs' check_logs
 run_check 'static.repository.viewer_qc_example' check_viewer_qc_example
 run_check 'static.callers.step3' check_step3
+run_check 'static.repository.processing_safety' check_processing_safety
 run_check 'static.callers.step5_4' check_step5_4
 run_check 'static.callers.step7_2' check_step7_2
 run_check 'static.callers.step7_3' check_step7_3

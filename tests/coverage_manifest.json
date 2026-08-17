@@ -8,12 +8,14 @@
     "relative_tolerance": 0
   },
   "expected_runtime_totals": {
-    "runner_sha256": "dcef9e0b597db19e492ff62af0f636c5d0fa3d6df2f8e497822522eea3e92d11",
+    "runner_sha256": "5ae6bcd85751b902d1228eb4a175f6630ad67d775d9e41e4ce45c91cb28fa9ca",
     "preproc": 30,
     "response": 17,
     "jitter": 11,
     "qc": 284,
     "clean_contract": 18,
+    "registry": 23,
+    "processing_state": 9,
     "extended": 120
   },
   "test_catalog": [
@@ -431,6 +433,58 @@
       ]
     },
     {
+      "id": "matlab.registry_paths",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_dataset_registry_path_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_dataset_registry_path_tests",
+      "expected_pass_count": 23,
+      "cases": [
+        "valid_summary_registry",
+        "valid_raw_registry",
+        "raw_prefix_lookalike",
+        "processed_prefix_lookalike",
+        "summary_prefix_lookalike",
+        "absolute_path",
+        "parent_traversal",
+        "dot_component",
+        "repeated_separator",
+        "leading_whitespace",
+        "windows_drive_path",
+        "unc_path",
+        "backslash_path",
+        "blank_processed_path",
+        "path_valued_filename",
+        "wrong_extension",
+        "uppercase_extension",
+        "raw_output_equality",
+        "duplicate_processed_target",
+        "duplicate_summary_target",
+        "invalid_late_row_no_write",
+        "nested_symlink_escape",
+        "redirected_stage_root"
+      ]
+    },
+    {
+      "id": "matlab.processing_state",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_processing_state_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_processing_state_tests",
+      "expected_pass_count": 9,
+      "cases": [
+        "same_rate_partial_reference",
+        "missing_channel_metadata",
+        "all_reference_channels_missing",
+        "all_reference_channels_present",
+        "zero_fit_clears_prior_nrf",
+        "zero_fit_empty_nrf_no_save",
+        "zero_fit_absent_nrf_no_save",
+        "positive_fit_saves_without_prior_nrf",
+        "nonstruct_prior_nrf_cleared"
+      ]
+    },
+    {
       "id": "static.manifest",
       "kind": "static-git",
       "source": "tests/run_static_checks.sh",
@@ -499,6 +553,13 @@
       "source": "tests/run_static_checks.sh",
       "runner": "tests/run_static_checks.sh",
       "runner_anchor": "static.callers.step3"
+    },
+    {
+      "id": "static.repository.processing_safety",
+      "kind": "static-git",
+      "source": "tests/check_processing_safety_contracts.py",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.processing_safety"
     },
     {
       "id": "static.callers.step5_4",
@@ -1531,6 +1592,94 @@
       "category": "scientific-core"
     },
     {
+      "id": "BASE-SAF-001",
+      "requirement_key": "dataset_registry_paths",
+      "surface": "validate_dataset_registry_paths",
+      "requirement": "Raw, processed and summary paths are non-empty project-relative component-boundary paths; filenames are basenames with the exact lowercase .set extension; canonical targets remain inside exact repository roots; and processed plus per-dataset summary destinations are unique.",
+      "test_refs": [
+        {
+          "test_id": "matlab.registry_paths"
+        },
+        {
+          "test_id": "static.repository.processing_safety"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-SAF-002",
+      "requirement_key": "registry_write_preflight",
+      "surface": "scripts.registry_write_boundaries",
+      "requirement": "The complete registry is validated before any processed-path rewrite, output-directory creation, dataset resave, summary-path rewrite or individual-summary write; an invalid late row leaves governed outputs unchanged.",
+      "test_refs": [
+        {
+          "test_id": "matlab.registry_paths",
+          "cases": [
+            "invalid_late_row_no_write"
+          ]
+        },
+        {
+          "test_id": "static.repository.processing_safety"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-SAF-003",
+      "requirement_key": "effective_preprocessing_provenance",
+      "surface": "scripts.preprocessing.options_effective",
+      "requirement": "Effective rereference channels and resampling flags are derived from the adjusted options actually applied, while requested options remain separate.",
+      "test_refs": [
+        {
+          "test_id": "matlab.processing_state",
+          "cases": [
+            "same_rate_partial_reference",
+            "missing_channel_metadata",
+            "all_reference_channels_missing",
+            "all_reference_channels_present"
+          ]
+        },
+        {
+          "test_id": "static.repository.processing_safety"
+        }
+      ],
+      "category": "preprocessing"
+    },
+    {
+      "id": "BASE-SAF-004",
+      "requirement_key": "nrf_clear_persistence",
+      "surface": "scripts.NRF_feature_extraction",
+      "requirement": "A zero-fit rerun persists removal of prior NRF state, while zero fits with no prior state remain write-free and positive-fit runs still save.",
+      "test_refs": [
+        {
+          "test_id": "matlab.processing_state",
+          "cases": [
+            "zero_fit_clears_prior_nrf",
+            "zero_fit_empty_nrf_no_save",
+            "zero_fit_absent_nrf_no_save",
+            "positive_fit_saves_without_prior_nrf",
+            "nonstruct_prior_nrf_cleared"
+          ]
+        },
+        {
+          "test_id": "static.repository.processing_safety"
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
+      "id": "BASE-SAF-005",
+      "requirement_key": "nrf_template_preflight",
+      "surface": "scripts.NRF_feature_extraction.templates",
+      "requirement": "Every mapped logical NRF template resolves before the dataset list is processed or any dataset can be loaded or resaved.",
+      "test_refs": [
+        {
+          "test_id": "static.repository.processing_safety"
+        }
+      ],
+      "category": "response-estimation"
+    },
+    {
       "id": "BASE-DEP-002",
       "requirement_key": "dependency_present",
       "surface": "dependencies",
@@ -1580,7 +1729,7 @@
       "id": "BASE-CLS-001",
       "requirement_key": "closure_function_inventory",
       "surface": "repository.functions",
-      "requirement": "Exact 30-function workflow inventory.",
+      "requirement": "Exact 31-function workflow inventory.",
       "test_refs": [
         {
           "test_id": "static.repository.function_inventory"
