@@ -820,6 +820,21 @@ def require_tokens(relative, tokens):
         raise AssertionError(f"{relative}: missing required anchors {missing}")
     return text
 
+standardised_events = require_tokens(
+    "scripts/step_2_raw_6_get_standardised_events.m", [
+        "data/info_prelim/event_types_standardised/<stem>_event_types_standardised.csv",
+        "outCsv = fullfile(eventsFolder, [stem '_event_types_standardised.csv']);",
+    ])
+if "_eeg_event_types_standardised.csv']);" in standardised_events:
+    raise AssertionError("standardised-event output suffix repeats the BIDS _eeg stem")
+fixture_stem = pathlib.PurePosixPath(
+    "sub-TEST_ses-TEST_run-stim2_eeg.set").stem
+fixture_output = fixture_stem + "_event_types_standardised.csv"
+expected_output = "sub-TEST_ses-TEST_run-stim2_eeg_event_types_standardised.csv"
+if fixture_output != expected_output or "_eeg_eeg_" in fixture_output:
+    raise AssertionError(
+        f"standardised-event filename contract failed: {fixture_output}")
+
 step3 = require_tokens("scripts/step_3_proc_4_preprocessing.m", [
     "PreprocOptions.src_types    = {'cannula'};",
     "PreprocOptions.new_types    = {'cannula_prestim'};",

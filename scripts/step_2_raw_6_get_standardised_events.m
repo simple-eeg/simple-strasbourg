@@ -12,7 +12,7 @@
 %          - Joined into a single string with '; ' as separator.
 %
 %     2) For each .set, write a CSV:
-%          data/info_prelim/event_types_standardised/<stem>_eeg_event_types_standardised.csv
+%          data/info_prelim/event_types_standardised/<stem>_event_types_standardised.csv
 %        containing one event type per row (duplicates kept, no header).
 %
 %     3) Write a global summary CSV:
@@ -173,7 +173,7 @@ for k = 1:numel(idxIncluded)
 
     % ---- 4a) Write per-file CSV with duplicates kept (no header) ----
     [~, stem, ~] = fileparts(char(setName));
-    outCsv = fullfile(eventsFolder, [stem '_eeg_event_types_standardised.csv']);
+    outCsv = fullfile(eventsFolder, [stem '_event_types_standardised.csv']);
 
     if isempty(types)
         % Create an empty file explicitly
