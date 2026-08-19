@@ -8,7 +8,7 @@
     "relative_tolerance": 0
   },
   "expected_runtime_totals": {
-    "runner_sha256": "5ae6bcd85751b902d1228eb4a175f6630ad67d775d9e41e4ce45c91cb28fa9ca",
+    "runner_sha256": "21bb137af69ef2105656b9ea85a71d28f59da47a70e96245a3f1b1e22e3c6a8d",
     "preproc": 30,
     "response": 17,
     "jitter": 11,
@@ -16,6 +16,7 @@
     "clean_contract": 18,
     "registry": 23,
     "processing_state": 9,
+    "step8_check_plot": 8,
     "extended": 120
   },
   "test_catalog": [
@@ -485,6 +486,24 @@
       ]
     },
     {
+      "id": "matlab.step8_check_plot",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_step8_check_plot_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_step8_check_plot_tests",
+      "expected_pass_count": 8,
+      "cases": [
+        "collection_positive",
+        "collection_failures",
+        "panel_parity",
+        "separation_positive",
+        "separation_failures",
+        "script_positive",
+        "script_failures",
+        "transaction_rollback"
+      ]
+    },
+    {
       "id": "static.manifest",
       "kind": "static-git",
       "source": "tests/run_static_checks.sh",
@@ -588,6 +607,13 @@
       "source": "tests/run_static_checks.sh",
       "runner": "tests/run_static_checks.sh",
       "runner_anchor": "static.repository.strasbourg_contract"
+    },
+    {
+      "id": "static.callers.step8_guardrail",
+      "kind": "static-git",
+      "source": "tests/run_static_checks.sh",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.callers.step8_guardrail"
     },
     {
       "id": "static.repository.unintended_files",
@@ -1888,7 +1914,7 @@
       "id": "BASE-CLS-012",
       "requirement_key": "closure_strasbourg",
       "surface": "repository.dataset_specific_contract",
-      "requirement": "The repository contains exactly 34 Strasbourg workflow scripts with cannula/prestim, Cz/CZ, 200/1200-ms, preterm-NRF, Step-8 earliest-recording and within-subject-median behaviour.",
+      "requirement": "The repository contains exactly 34 Strasbourg workflow scripts with the cannula/cannula-prestim, Cz/CZ, 200/1200-ms and preterm-NRF route, ending in the sole recording-level Step 8 Figure 6 output without participant aggregation or JASP export.",
       "test_refs": [
         {
           "test_id": "static.repository.strasbourg_contract"
@@ -1899,6 +1925,39 @@
             "logical_route_provenance_support_shift",
             "explicit_route_exact_equality"
           ]
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-GEN-001",
+      "requirement_key": "step8_guardrail_figure",
+      "surface": "scripts.step_8_manuscript_output",
+      "requirement": "Step 8 contains exactly one manuscript-output script. It creates the fixed recording-level four-by-two Figure 6 PDF from validated screened epochs and saved Step 7.6/7.7 schema-v2 results without invoking a Step 7 script, recalculating its bootstrap or aggregating recordings within participant. It commits only its own PDF transactionally under data/results and creates its exact-name replacement log.",
+      "test_refs": [
+        {
+          "test_id": "matlab.step8_check_plot"
+        },
+        {
+          "test_id": "static.callers.step8_guardrail"
+        },
+        {
+          "test_id": "static.repository.strasbourg_contract"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-CLS-020",
+      "requirement_key": "closure_step81",
+      "surface": "scripts.step_8_gen_1_check_plots",
+      "requirement": "The fixed Step 8.1 guardrail figure uses the exact five canonically bound helper interfaces, matches active Steps 7.3--7.5 for both configured events, consumes fully validated saved schema-v2 separation results without bootstrap or RNG change, exposes the accepted tagged eight-panel and six-label inspection surface, and restores or removes its owned PDF transaction on every rejected route.",
+      "test_refs": [
+        {
+          "test_id": "matlab.step8_check_plot"
+        },
+        {
+          "test_id": "static.callers.step8_guardrail"
         }
       ],
       "category": "repository"

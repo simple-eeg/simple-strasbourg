@@ -2,8 +2,8 @@
 
 SIMPLE Strasbourg is the MATLAB/EEGLAB workflow for the NOCI-Prem neonatal EEG
 dataset supplied by the Strasbourg collaborators. It covers BrainVision source
-preparation, the complete SIMPLE EEG workflow, and Strasbourg-specific
-subject-level export.
+preparation, the complete SIMPLE EEG workflow, and the Strasbourg-specific
+post-core guardrail figure.
 
 Associated methods paper: citation and link to be added when available.
 
@@ -180,38 +180,44 @@ The Strasbourg settings use `cannula` and `cannula_prestim` epochs at `Cz`, a
 route. Review these settings against the intended execution before running the
 dependent scripts.
 
-### Step 8 — Strasbourg analysis export
+### Step 8 — General manuscript output
 
-`step_8_jasp_1_data_prep_eeg.m` reads the screened pooled QC and NRF tables and
-uses the BrainVision marker files to establish recording chronology. It writes:
+`step_8_gen_1_check_plots.m` creates the fixed post-core guardrail Figure 6
+under `data/results/` and leaves the corresponding MATLAB figure, configuration,
+calculated panel data and graphics handles in the workspace for inspection. It
+loads the screened pooled epochs and the saved Step 7.6/7.7 separation results,
+then writes
+`figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf` as a vector PDF.
 
-- `data/jasp/jasp_data_eeg.csv`, containing the earliest timestamped cannula
-  recording selected for each subject before screening flags are consulted;
-- `data/jasp/jasp_data_eeg_median.csv`, containing the within-subject median of
-  complete recording pairs for which both `cannula` and `cannula_prestim` are
-  retained; and
-- `data/jasp/jasp_selection_manifest.csv`, recording chronology, selection,
-  screening and contribution provenance for both routes.
+The figure has four rows and two columns: recording-level average time series,
+time-frequency and PSD panels for `cannula_prestim` and `cannula`, followed by
+the saved QC and preterm-noxious-NRF feature-separation checks. The first three
+rows use the active Strasbourg Step 7.3--7.5 settings, including the configured
+preterm NRF overlay. The final row validates and plots the saved schema-v2 Step
+7 results without rerunning their bootstrap or changing the caller's random-
+number-generator state. Step 8 does not aggregate recordings within participant.
+It does not call a Step 7 script or prepare a JASP file.
 
-The earliest-recording route does not substitute a later recording when the
-selected true-event epoch is excluded. The median route uses one common set of
-complete retained recording pairs for all four analytical values. Step 8
-creates CSV files only; it does not create or execute a JASP archive.
+The script starts a fresh exact-name Command Window log before clearing the
+Command Window, validates all inputs before creating its scientific target,
+and replaces only its own PDF transactionally. A rejected run may create or
+replace only `data/logs/step_8_gen_1_check_plots.log`; it removes its transient
+PDF paths and preserves any prior accepted PDF and unrelated results.
 
 ## User decisions and scientific boundaries
 
 Review enabled and disabled user options rather than assuming the checked-in
 settings are appropriate for another execution. In particular, confirm source
 paths, event mappings, channels, sampling rates, filters, epoch and baseline
-windows, NRF profiles, screening settings, exclusion handling and Step 8
-selection rules.
+windows, NRF profiles, screening settings, exclusion handling and Step 8 plot
+settings.
 
 The core processing unit is one analysed event-channel instance. NOCI-Prem
-recordings remain separate through Steps 1–7. The selected within-subject
-median is introduced only by its Step 8 export; it does not alter an earlier
-framework input, screening unit or output. Group-level inference requires one
-prespecified participant-level contribution or an analysis that accounts for
-repeated observations.
+recordings remain separate through Steps 1–8, including the Figure 6 guardrail
+display. This descriptive manuscript figure does not perform group-level
+inference. Any later group-level inference requires one prespecified
+participant-level contribution or an analysis that accounts for repeated
+observations.
 
 Source data, manual screening, figures and final statistical interpretation
 remain human-reviewed scientific inputs. A successful script or regression
@@ -222,9 +228,9 @@ test establishes technical behaviour; it does not replace those decisions.
 `tests/run_all_tests.m` uses synthetic EEG fixtures only. It exercises the
 preprocessing, response, jitter and QC contracts, all six bundled templates,
 registry paths, effective preprocessing provenance, stale-NRF clearing, path
-precedence, local template binding and the public APIs in the verified
-MATLAB/EEGLAB environment. It does not read project datasets or run a numbered
-workflow script.
+precedence, local template binding, the Step 8 guardrail-figure transaction and
+the public APIs in the verified MATLAB/EEGLAB environment. It does not read
+project datasets or run a numbered workflow script against repository data.
 
 From MATLAB, call the runner with explicit roots:
 

@@ -269,14 +269,14 @@ require(manifest.get("comparison_policy") == {
 
 catalog = manifest.get("test_catalog")
 coverage = manifest.get("coverage")
-require(isinstance(catalog, list) and len(catalog) == 40, "test catalog count differs")
-require(isinstance(coverage, list) and len(coverage) == 71, "coverage row count differs")
+require(isinstance(catalog, list) and len(catalog) == 42, "test catalog count differs")
+require(isinstance(coverage, list) and len(coverage) == 73, "coverage row count differs")
 catalog_ids = [item.get("id") for item in catalog]
 require(all(isinstance(x, str) and x for x in catalog_ids), "blank catalog id")
 require(len(catalog_ids) == len(set(catalog_ids)), "duplicate catalog id")
 catalog_by_id = {item["id"]: item for item in catalog}
 
-expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","templates_six_rates","warning_restoration"])
+expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_step81","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","step8_guardrail_figure","templates_six_rates","warning_restoration"])
 actual_keys = [row.get("requirement_key") for row in coverage]
 require(len(actual_keys) == len(set(actual_keys)), "duplicate requirement key")
 require(set(actual_keys) == expected_keys, "required coverage-key set differs")
@@ -360,7 +360,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"5ae6bcd85751b902d1228eb4a175f6630ad67d775d9e41e4ce45c91cb28fa9ca","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"processing_state":9,"extended":120}
+expected_totals = {"runner_sha256":"21bb137af69ef2105656b9ea85a71d28f59da47a70e96245a3f1b1e22e3c6a8d","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"processing_state":9,"step8_check_plot":8,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()
@@ -392,6 +392,8 @@ require(catalog_item("matlab.registry_paths")["expected_pass_count"] ==
         expected_totals["registry"], "registry-path total differs")
 require(catalog_item("matlab.processing_state")["expected_pass_count"] ==
         expected_totals["processing_state"], "processing-state total differs")
+require(catalog_item("matlab.step8_check_plot")["expected_pass_count"] ==
+        expected_totals["step8_check_plot"], "Step-8-check-plot total differs")
 
 oracle_path = root / "tests" / "fixtures" / "simple_scientific_oracle_v1.json"
 oracle_json = json.loads(oracle_path.read_text(encoding="utf-8"))
@@ -440,7 +442,7 @@ require(oracle_json["boundaries"] == {
     "university_server_accesses": 0,
     "dependency_updates": 0,
 }, "scientific-oracle boundaries differ")
-print("71 coverage rows; 40 named test groups; exact scientific-oracle cardinalities and binding")
+print("73 coverage rows; 42 named test groups; exact scientific-oracle cardinalities and binding")
 PY
 }
 
@@ -461,13 +463,18 @@ check_function_inventory() {
         calc_maxAbsEpoch.m \
         calc_maxAbsPost.m \
         calc_sdEpoch.m \
+        collect_guardrail_event_series.m \
         compute_paired_effect.m \
         convert_curry_to_eeg.m \
         convert_xdf_to_eeg.m \
         delete_unwanted_events.m \
         estimate_response.m \
         jittercorrect.m \
+        load_guardrail_separation_result.m \
         plot_paired_effect_result.m \
+        plot_guardrail_average_psd.m \
+        plot_guardrail_average_tf.m \
+        plot_guardrail_average_ts.m \
         preproc.m \
         quality_control_features.m \
         quality_control_features_with_diagnostics.m \
@@ -481,8 +488,8 @@ check_function_inventory() {
         validate_dataset_registry_paths.m | LC_ALL=C sort > "$expected"
     git -C "$candidate" ls-files functions | sed 's#^functions/##' | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
-    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 31 ] || return 1
-    printf 'exact 31-function inventory'
+    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 36 ] || return 1
+    printf 'exact 36-function inventory'
 }
 
 check_template_inventory() {
@@ -539,6 +546,13 @@ required = {
         "simple_scientific_oracle_v1.mat",
         "results.registry = run_dataset_registry_path_tests(repoRoot);",
         "results.processing_state = run_processing_state_tests(repoRoot);",
+        "results.step8_check_plot = run_step8_check_plot_tests(repoRoot);",
+    ],
+    "tests/run_step8_check_plot_tests.m": [
+        "function result = run_step8_check_plot_tests(repoRoot)",
+    ],
+    "scripts/step_8_gen_1_check_plots.m": [
+        "figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf",
     ],
 }
 for relative, anchors in required.items():
@@ -662,10 +676,16 @@ for parent in (root / "functions", root / "scripts"):
                 bad.append(f"{path.relative_to(root)}:{expression}")
 if bad:
     raise AssertionError("; ".join(bad))
-if len(constructors) != 1:
-    raise AssertionError(f"log-constructor count differs: {constructors}")
+expected_constructor_files = {
+    "scripts/log_command_window.m",
+    "scripts/step_8_gen_1_check_plots.m",
+}
+actual_constructor_files = {item.split(":", 1)[0] for item in constructors}
+if len(constructors) != 2 or actual_constructor_files != expected_constructor_files:
+    raise AssertionError(f"log-constructor inventory differs: {constructors}")
 PY
-    printf 'single data/logs constructor; replacement and ignore anchors present'
+    [ "$?" -eq 0 ] || return 1
+    printf 'logger plus exact Step 8.1 recovery-log path; replacement and ignore anchors present'
 }
 
 check_viewer_qc_example() {
@@ -835,7 +855,7 @@ check_strasbourg_contract() {
         step_7_check_5_plot_average_psd.m \
         step_7_check_6_sep_check_qc.m \
         step_7_check_7_sep_check_nrf.m \
-        step_8_jasp_1_data_prep_eeg.m | LC_ALL=C sort > "$expected"
+        step_8_gen_1_check_plots.m | LC_ALL=C sort > "$expected"
     git -C "$candidate" ls-files 'scripts/step_*.m' | \
         sed 's#^scripts/##' | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
@@ -1009,17 +1029,197 @@ require_tokens("scripts/step_7_check_7_sep_check_nrf.m", [
     'NRFName_of_interest = "noxious_preterm_NRF_500Hz";',
 ])
 
-require_tokens("scripts/step_8_jasp_1_data_prep_eeg.m", [
-    'expected_channel = "Cz";',
-    'expected_nrfname = "noxious_preterm_NRF_500Hz";',
-    'expected_ref_event = "cannula_prestim";',
-    'expected_true_event = "cannula";',
-    'selection_rule = "earliest_timestamped_cannula_event_per_subject";',
-    '"within_subject_median_of_complete_retained_matched_recording_pairs";',
-    '%% 6) Rank recordings chronologically and freeze selection before Exclude',
-    '%% 9) Aggregate complete retained matched recordings within subject by median',
+require_tokens("scripts/step_8_gen_1_check_plots.m", [
+    "'ordered', [\"cannula_prestim\", \"cannula\"]",
+    "'nrf_name', \"noxious_preterm_NRF_500Hz\"",
+    "'figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf'",
 ])
-print("exact 34-script Strasbourg event/channel/window/preterm/Step-8 contract")
+print("exact 34-script Strasbourg event/channel/window/preterm/Figure-6 contract")
+PY
+}
+
+check_step8_guardrail() {
+    python3 - "$candidate" <<'PY'
+import hashlib
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+
+def digest(relative):
+    return hashlib.sha256((root / relative).read_bytes()).hexdigest()
+
+def script_statements(text):
+    statements = []
+    in_block_comment = False
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("%{"):
+            in_block_comment = True
+            continue
+        if in_block_comment:
+            if stripped.startswith("%}"):
+                in_block_comment = False
+            continue
+        if re.match(r"^\s*function\b", raw_line):
+            break
+        if not stripped or stripped.startswith("%"):
+            continue
+        code = raw_line.split("%", 1)[0].strip()
+        if code:
+            statements.append(code)
+    return statements
+
+expected = ["step_8_gen_1_check_plots.m"]
+actual = sorted(path.name for path in (root / "scripts").glob("step_8_*.m"))
+if actual != expected:
+    raise AssertionError(f"Step 8 manuscript-output inventory differs: {actual}")
+
+source_hashes = {
+    "scripts/step_8_gen_1_check_plots.m":
+        "53725c42043a44acb2d521e39f8ba3276c45072826a8452334d1c42103831ade",
+    "functions/collect_guardrail_event_series.m":
+        "09fd57796d147f88c008d6a0add4c37ad658ec61f40cff549c349c9541555dc5",
+    "functions/plot_guardrail_average_ts.m":
+        "617b90c939387436f021771bc3a05c0b1d0d905736c6ab7278ca8da1b84fee2d",
+    "functions/plot_guardrail_average_tf.m":
+        "9f7a2fe2ec03d1745f9bf961da6dfc24af13289fbdd78ac619301a679978d32f",
+    "functions/plot_guardrail_average_psd.m":
+        "ae61dd115e3be484b04b2be60541d9bae4b143d3338e7d82e11f949ce67f3088",
+    "functions/load_guardrail_separation_result.m":
+        "2e81686dc395a34cf704b7007ca4f67da1fbb88a97235157bbce91547e385626",
+    "scripts/step_7_check_3_plot_average_ts.m":
+        "b6580880523fb25f9e26c3e58fd7d78edc4c271b5c5d929f2590ffc5c4f8ba70",
+    "scripts/step_7_check_4_plot_average_tf.m":
+        "abe97ea9826a9c214ab1d51811f4917774c1d9e7bee44a2768aeb98c2265302f",
+    "scripts/step_7_check_5_plot_average_psd.m":
+        "5ac7c7cd07ae5f24326a93b698e026a57868b97a41c76b97c96cac5a5286bfc4",
+    "scripts/step_7_check_6_sep_check_qc.m":
+        "37bde8cfdb1a35c9cc0c5dbbe45a877361b6e481a9b9850bda378985def63449",
+    "scripts/step_7_check_7_sep_check_nrf.m":
+        "216a3be171ad0d80291602cc05124bb6e963fe8781bb23877191bf78cfac674a",
+}
+for relative, expected_hash in source_hashes.items():
+    if digest(relative) != expected_hash:
+        raise AssertionError(f"Step 8.1 source/reference anchor differs: {relative}")
+
+step81 = (root / "scripts" / expected[0]).read_text(encoding="utf-8")
+statements = script_statements(step81)
+if not statements or statements[0] != "log_command_window('start');":
+    raise AssertionError("Step 8.1 logger start is not the first executable statement")
+clear_positions = [i for i, value in enumerate(statements)
+                   if re.match(r"^clear(?:\s|;)", value)]
+if not clear_positions or clear_positions[0] <= 0:
+    raise AssertionError("Step 8.1 logger start does not precede clear")
+if step81.count("log_command_window('start');") != 1 or \
+        step81.count("log_command_window('stop');") != 2:
+    raise AssertionError("Step 8.1 guarded logger inventory differs")
+for anchor in (
+    "try", "catch ME", "rethrow(ME);", "figure6LogActive",
+    "figure6LogStopAttempted",
+    "Completed Step 8.1 guardrail figure preparation; committing PDF:",
+):
+    if anchor not in step81:
+        raise AssertionError(f"Step 8.1 guarded finaliser lacks {anchor}")
+
+step81_anchors = [
+    "resultsDir = fullfile(baseDir, 'data', 'results');",
+    "'figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf'",
+    "'step_8_gen_1_check_plots.log'",
+    "'pooled_screened_eeg_epochs.mat'",
+    "'step_7_check_6_sep_check_qc_result.mat'",
+    "'step_7_check_7_sep_check_nrf_result.mat'",
+    "'ordered', [\"cannula_prestim\", \"cannula\"]",
+    "figure6Config.use_exclusion_flags = true;",
+    "'noxious_preterm_NRF_500Hz'", "'fit_time_ms', 0",
+    "'jitter_ms', 100", "'aggregator', \"mean\"",
+    "'smoothing_ms', 0", "'x_limits_ms', [-100 1150]",
+    "'y_limits_uV', [-20 20]", "'voices_per_octave', 12",
+    "'baseline_time_agg', \"mean\"", "'epoch_agg', \"mean\"",
+    "'y_axis_scale', \"linear\"", "'frequency_limits_hz', [3 30]",
+    "'colour_limits_db', [-4 4]", "'epoch_window', \"post-stim\"",
+    "'aggregate_domain', \"linear_power\"",
+    "'frequency_limits_hz', [-1 251]", "'time_bandwidth_product', 4",
+    "'nfft', 1024", "'alpha', 0.05", "'figure_position_cm', [2 2 18 24]",
+    "'part_a', 'A. Time and frequency domain checks'",
+    "'reference', 'Internal reference (cannula_prestim)'",
+    "'true', 'True event (cannula)'",
+    "'part_b', 'B. Feature separation checks'",
+    "'qc', 'QC feature (MeanAbsDiffNorm)'",
+    "'nrf', 'Preterm noxious NRF magnitude'",
+    "figure6Config = struct();", "figure6PanelData = struct();",
+    "figure6PanelHandles = struct();", "figure6Figure = figure(",
+    "collect_guardrail_event_series(", "plot_guardrail_average_ts(",
+    "plot_guardrail_average_tf(", "plot_guardrail_average_psd(",
+    "load_guardrail_separation_result(", "plot_paired_effect_result(",
+    "exportgraphics(figure6Figure, figure6PartialPdf, 'ContentType', 'vector');",
+    "figure6InternalFailpoint = \"\";",
+]
+missing = [anchor for anchor in step81_anchors if anchor not in step81]
+if missing:
+    raise AssertionError(f"Step 8.1 fixed route differs: {missing}")
+if step81.count("load(figure6Config.paths.screened_epochs_mat, 'epochs_pooled')") != 1:
+    raise AssertionError("Step 8.1 does not load the screened epoch MAT exactly once")
+if re.search(r"\brun\s*\(", step81, flags=re.IGNORECASE):
+    raise AssertionError("Step 8.1 invokes a numbered Step 7 script with run")
+if re.search(r"step_7_check_[3-7][A-Za-z0-9_]*\s*\(", step81):
+    raise AssertionError("Step 8.1 directly invokes a Step 7 script")
+
+expected_axes = [
+    "figure6-ts-reference", "figure6-ts-true",
+    "figure6-tf-reference", "figure6-tf-true",
+    "figure6-psd-reference", "figure6-psd-true",
+    "figure6-qc-separation", "figure6-nrf-separation",
+]
+expected_labels = [
+    "figure6-label-part-a", "figure6-label-reference",
+    "figure6-label-true", "figure6-label-part-b",
+    "figure6-label-qc", "figure6-label-nrf",
+]
+for tag in expected_axes + expected_labels:
+    if step81.count(tag) < 2:
+        raise AssertionError(f"Step 8.1 tagged inventory lacks checked tag {tag}")
+
+helper_contracts = {
+    "collect_guardrail_event_series.m":
+        "function seriesByEvent = collect_guardrail_event_series(",
+    "plot_guardrail_average_ts.m":
+        "function [result, handles] = plot_guardrail_average_ts(",
+    "plot_guardrail_average_tf.m":
+        "function [result, handles] = plot_guardrail_average_tf(",
+    "plot_guardrail_average_psd.m":
+        "function [result, handles] = plot_guardrail_average_psd(",
+    "load_guardrail_separation_result.m":
+        "function result = load_guardrail_separation_result(",
+}
+for name, signature in helper_contracts.items():
+    text = (root / "functions" / name).read_text(encoding="utf-8")
+    if signature not in text:
+        raise AssertionError(f"Step 8.1 helper signature differs: {name}")
+    for prohibited in ("/Users/", "evalin(", "assignin(",
+                       "log_command_window(", "diary(", "exportgraphics(",
+                       "save(", "writetable("):
+        if prohibited in text:
+            raise AssertionError(
+                f"Step 8.1 helper has prohibited side effect/root: {name} {prohibited}")
+if "figure(" in (root / "functions" / "plot_guardrail_average_ts.m").read_text(encoding="utf-8") or \
+        "figure(" in (root / "functions" / "plot_guardrail_average_tf.m").read_text(encoding="utf-8") or \
+        "figure(" in (root / "functions" / "plot_guardrail_average_psd.m").read_text(encoding="utf-8"):
+    raise AssertionError("A Step 8.1 panel helper creates its own figure")
+
+readme = (root / "README.md").read_text(encoding="utf-8")
+for anchor in (
+    "step_8_gen_1_check_plots.m",
+    "figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf",
+    "four rows and two columns",
+    "without rerunning their bootstrap",
+    "does not call a Step 7 script",
+    "aggregate recordings within participant",
+):
+    if anchor not in readme:
+        raise AssertionError(f"README lacks the Step 8.1 contract: {anchor}")
+print("one exact Step 8 script; fixed recording-level Figure 6 helper and transaction route")
 PY
 }
 
@@ -1077,6 +1277,14 @@ check_readme() {
         '`corr`' \
         'CleanLine is optional' \
         'Every registry path is validated before a governed write' \
+        '### Step 8 — General manuscript output' \
+        '`step_8_gen_1_check_plots.m`' \
+        '`figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf`' \
+        'four rows and two columns' \
+        'without rerunning their bootstrap' \
+        'does not call a Step 7 script' \
+        'aggregate recordings within participant' \
+        '`data/logs/step_8_gen_1_check_plots.log`' \
         'tests/run_all_tests.m' \
         'run_all_tests(strasbourgRoot, eeglabRoot);' \
         "tests/run_static_checks.sh"; do
@@ -1161,6 +1369,7 @@ expected_callers = {
     "step_7_check_3_plot_average_ts.m",
     "step_7_check_6_sep_check_qc.m",
     "step_7_check_7_sep_check_nrf.m",
+    "step_8_gen_1_check_plots.m",
 }
 for path in (root / "scripts").glob("*.m"):
     text = path.read_text(encoding="utf-8")
@@ -1173,7 +1382,8 @@ for path in (root / "scripts").glob("*.m"):
         issues.append(f"{path.name}: EEGLAB starts after local addpath")
     has_named_assertion = "which(" in text and re.search(
         r"expected(?:Function|NRFUtils|NRFUtilsFile|Validator)", text)
-    has_shared_assertion = "assert_local_helper_paths(" in text
+    has_shared_assertion = ("assert_local_helper_paths(" in text or
+                            "local_assert_helper_paths(" in text)
     if not (has_named_assertion or has_shared_assertion):
         issues.append(f"{path.name}: no canonical local-function assertion")
 
@@ -1214,6 +1424,7 @@ run_check 'static.callers.step5_4' check_step5_4
 run_check 'static.callers.step7_2' check_step7_2
 run_check 'static.callers.step7_3' check_step7_3
 run_check 'static.repository.strasbourg_contract' check_strasbourg_contract
+run_check 'static.callers.step8_guardrail' check_step8_guardrail
 run_check 'static.repository.unintended_files' check_unintended_files
 run_check 'static.repository.readme' check_readme
 run_check 'static.repository.root_shape' check_root_shape
