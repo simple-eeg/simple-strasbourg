@@ -31,9 +31,46 @@ clear; clc;
 baseDir = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
 inXlsx  = fullfile(baseDir, 'data_lists', 'dataset_list_prelim.xlsx');
 outCsv  = fullfile(baseDir, 'data_lists', 'dataset_list.csv');
+functionsDir = fullfile(baseDir, 'functions');
+
+addpath(functionsDir, '-begin');
+clear inspect_identity_state load_dataset_identity_registry ...
+    build_pseudonymised_dataset_registry validate_dataset_registry_paths
+rehash path
+expectedInspector = char(java.io.File(fullfile(functionsDir, ...
+    'inspect_identity_state.m')).getCanonicalPath());
+activeInspector = which('inspect_identity_state');
+if isempty(activeInspector) || ~strcmp(char(java.io.File( ...
+        activeInspector).getCanonicalPath()), expectedInspector)
+    error('SIMPLE:Step2Identity:HelperResolution', ...
+        'The repository-local Step 2 identity-state inspector is not active.');
+end
 
 fprintf('step_2_raw_9_create_dataset_list.m\n');
 fprintf('Input XLSX: %s\n', inXlsx);
+
+% Refuse to overwrite a mapped, later-stage, or recoverable identity state.
+% The script log is the only write that occurs before this guard.
+identityState = inspect_identity_state(baseDir);
+if identityState.name == "original" && ...
+        width(identityState.identity.table) == 5
+    % An ordinary Step 2.9 rerun remains supported.
+elseif identityState.name == "empty"
+    % First Step 2.9 run: no final registry exists yet.
+elseif identityState.name == "mapped_unsanitised" || ...
+        identityState.name == "mapped_modified"
+    error('SIMPLE:Step2Identity:Step29MappedState', ...
+        ['Step 2.9 will not overwrite an existing replacement-ID mapping. ' ...
+         'Continue from the mapped registry instead.']);
+elseif startsWith(identityState.name, "recoverable_step_2_")
+    error('SIMPLE:Step2Identity:Step29TransactionActive', ...
+        ['A recoverable Step 2 identity transaction exists. Run its owning ' ...
+         'optional script to recover it before doing anything else.']);
+else
+    error('SIMPLE:Step2Identity:Step29UnsafeState', ...
+        ['Step 2.9 found a later-stage, partial, or unknown identity state ' ...
+         'and will not change either registry.']);
+end
 
 if ~isfile(inXlsx)
     error('Input file not found: %s', inXlsx);
@@ -57,6 +94,19 @@ missingCols = setdiff(REQ_COLS, opts.VariableNames);
 if ~isempty(missingCols)
     msg = sprintf('Missing required column(s) in dataset_list_prelim.xlsx:\n  - %s', strjoin(missingCols, '\n  - '));
     error('%s', msg);
+end
+
+% Identifier columns must already be text in the source workbook. Converting
+% detected numeric identifiers here could silently discard leading zeroes.
+ID_COLS = {'subjectID', 'sessionID', 'runID'};
+TEXT_TYPES = ["char", "string", "categorical"];
+for i = 1:numel(ID_COLS)
+    idx = find(strcmp(opts.VariableNames, ID_COLS{i}), 1, 'first');
+    if ~ismember(lower(string(opts.VariableTypes{idx})), TEXT_TYPES)
+        error('SIMPLE:Step2Identity:IdentityColumnsMustBeText', ...
+            ['subjectID, sessionID, and runID must be stored as text in ' ...
+             'dataset_list_prelim.xlsx.']);
+    end
 end
 
 % Force all required columns to import as string to preserve leading zeros,
@@ -98,7 +148,11 @@ for i = 1:numel(REQ_COLS)
     elseif iscategorical(col)
         s = string(col);
     elseif isnumeric(col) || islogical(col)
-        % Numeric should not happen if setvartype succeeded, but handle defensively:
+        if ismember(v, ID_COLS)
+            error('SIMPLE:Step2Identity:IdentityColumnsMustBeText', ...
+                'Subject, session, and run identifiers must remain text.');
+        end
+        % Non-identifier numeric columns remain supported defensively.
         s = strings(height(T), 1);
         if isnumeric(col)
             mask = ~isnan(col);

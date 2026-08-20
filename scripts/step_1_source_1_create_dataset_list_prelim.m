@@ -13,9 +13,9 @@ clear; clc;
 
 %% 1. Define paths and constants
 
-% Local project root and remote raw data folder
+% Local project root and external source folder
 local_base  = '/Users/lukebaxter/Developer/simple-eeg/simple-strasbourg';
-remote_base = '/Volumes/NDCN_SLATER/PiPAgroup_data_2TS/pipagroup_data_backup/Strasbourg/Data_export_June_2024';
+remote_base = '<EDIT_APPROVED_EXTERNAL_SOURCE_ROOT>';
 
 data_lists_dir = fullfile(local_base, 'data_lists');
 output_file    = fullfile(data_lists_dir, 'dataset_list_prelim.xlsx');
@@ -24,10 +24,12 @@ format_value = "BrainVision";
 
 %% 2. Basic checks and setup
 
-% Check remote_base exists
-if ~isfolder(remote_base)
+% Replace the placeholder locally with the approved source folder. Its private
+% path is intentionally neither stored in this repository nor printed on failure.
+if strcmp(remote_base, '<EDIT_APPROVED_EXTERNAL_SOURCE_ROOT>') || ~isfolder(remote_base)
     error('step_1_source_1_create_list:RemoteMissing', ...
-        'Remote base folder does not exist: %s', remote_base);
+        ['Set remote_base to the approved external source folder before running. ', ...
+        'The configured source folder is unavailable; its path is not displayed.']);
 end
 
 % Ensure data_lists directory exists
@@ -63,7 +65,7 @@ vhdr_files = dir_listing(is_vhdr);
 
 if isempty(vhdr_files)
     error('step_1_source_1_create_list:NoVHDR', ...
-        'No .vhdr files found in remote_base: %s', remote_base);
+        'No lowercase .vhdr files were found in the configured source folder.');
 end
 
 %% 4. Prepare table for output

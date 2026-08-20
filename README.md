@@ -137,6 +137,32 @@ corrections, and saves one-file EEGLAB datasets beneath `data/raw/`. The final
 `data_lists/dataset_list.csv` contains `subjectID`, `sessionID`, `runID`,
 `path_raw` and `EEGfile_raw` for recordings admitted to the framework.
 
+Step 2.9 creates those five columns in that exact order. Two final Step 2
+scripts are optional:
+
+- `step_2_raw_10_pseudonymise_ids.m` preserves the complete original raw tree
+  as private `data/raw_orig/`, builds a new active `data/raw/` containing the
+  admitted recordings under replacement subject/session/run labels, and
+  expands the private registry to the exact mapped core
+  `subjectID_orig`, `sessionID_orig`, `runID_orig`, `subjectID`, `sessionID`,
+  `runID`, `path_raw_orig`, `path_raw`, `EEGfile_raw_orig`, `EEGfile_raw`.
+  Replacement labels preserve leading zeros and follow the recording
+  hierarchy. The copied `.set` bytes are not altered by this script.
+- `step_2_raw_11_sanitise_sets.m` may run only after Step 2.10. It sanitises
+  identifier- and path-bearing metadata inside the active pseudonymised
+  `.set` files while preserving the EEG signals and scientific metadata. It
+  never changes `data/raw_orig/`.
+
+The supported routes are therefore: skip both scripts; run Step 2.10 only; or
+run Step 2.10 followed by Step 2.11. Running Step 2.11 without Step 2.10 is
+rejected. Both scripts are fail-closed transactions with restart recovery;
+they run only immediately after Step 2.9 and before material Step 3-or-later
+state, and they do not use the university server. `dataset_list.csv`,
+`data/raw_orig/`, and an unsanitised Step-2.10-only `data/raw/` remain private
+linkage material. Even sanitised replacement SETs remain governed,
+pseudonymised research data and are not automatically suitable for sharing.
+The replacement-ID route is pseudonymisation, not anonymisation.
+
 Each EEG filename must be a basename with the exact lowercase `.set`
 extension. Raw directories must be `data/raw` or descendants of it. Derived
 processed and summary directories must likewise be under the exact
@@ -227,9 +253,10 @@ test establishes technical behaviour; it does not replace those decisions.
 
 `tests/run_all_tests.m` uses synthetic EEG fixtures only. It exercises the
 preprocessing, response, jitter and QC contracts, all six bundled templates,
-registry paths, effective preprocessing provenance, stale-NRF clearing, path
-precedence, local template binding, the Step 8 guardrail-figure transaction and
-the public APIs in the verified MATLAB/EEGLAB environment. It does not read
+registry paths, the optional Step 2 identity and `.set`-sanitisation
+transactions, effective preprocessing provenance, stale-NRF clearing, path
+precedence, local template binding, the Step 8 guardrail-figure transaction,
+and the public APIs in the verified MATLAB/EEGLAB environment. It does not read
 project datasets or run a numbered workflow script against repository data.
 
 From MATLAB, call the runner with explicit roots:

@@ -29,6 +29,16 @@ def main() -> None:
         raise SystemExit(f"Usage: {sys.argv[0]} REPOSITORY_ROOT")
     root = pathlib.Path(sys.argv[1]).resolve(strict=True)
 
+    create_registry = read(root, "scripts/step_2_raw_9_create_dataset_list.m")
+    require_order(
+        create_registry,
+        "inspect_identity_state",
+        "writetable(",
+        "Step 2.9 optional-identity-state preflight",
+    )
+    require("Step29" in create_registry,
+            "Step 2.9 must expose a dedicated fail-closed state error surface")
+
     add_processed = read(root, "scripts/step_3_proc_3_add_processeds.m")
     require_order(
         add_processed,

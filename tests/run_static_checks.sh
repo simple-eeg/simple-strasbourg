@@ -269,14 +269,14 @@ require(manifest.get("comparison_policy") == {
 
 catalog = manifest.get("test_catalog")
 coverage = manifest.get("coverage")
-require(isinstance(catalog, list) and len(catalog) == 42, "test catalog count differs")
-require(isinstance(coverage, list) and len(coverage) == 73, "coverage row count differs")
+require(isinstance(catalog, list) and len(catalog) == 46, "test catalog count differs")
+require(isinstance(coverage, list) and len(coverage) == 76, "coverage row count differs")
 catalog_ids = [item.get("id") for item in catalog]
 require(all(isinstance(x, str) and x for x in catalog_ids), "blank catalog id")
 require(len(catalog_ids) == len(set(catalog_ids)), "duplicate catalog id")
 catalog_by_id = {item["id"]: item for item in catalog}
 
-expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_step81","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","step8_guardrail_figure","templates_six_rates","warning_restoration"])
+expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_step81","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","step2_downstream_identity_propagation","step2_pseudonymisation_transaction","step2_set_sanitisation_transaction","step8_guardrail_figure","templates_six_rates","warning_restoration"])
 actual_keys = [row.get("requirement_key") for row in coverage]
 require(len(actual_keys) == len(set(actual_keys)), "duplicate requirement key")
 require(set(actual_keys) == expected_keys, "required coverage-key set differs")
@@ -360,7 +360,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"21bb137af69ef2105656b9ea85a71d28f59da47a70e96245a3f1b1e22e3c6a8d","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"processing_state":9,"step8_check_plot":8,"extended":120}
+expected_totals = {"runner_sha256":"e06c6880d2d01b039baa6ee566c5fa5815b730cefc04a685dc901511931e372c","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"step2_identity":18,"step2_sanitisation":12,"step2_downstream_identity":8,"processing_state":9,"step8_check_plot":8,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()
@@ -392,6 +392,13 @@ require(catalog_item("matlab.registry_paths")["expected_pass_count"] ==
         expected_totals["registry"], "registry-path total differs")
 require(catalog_item("matlab.processing_state")["expected_pass_count"] ==
         expected_totals["processing_state"], "processing-state total differs")
+require(catalog_item("matlab.step2_identity")["expected_pass_count"] ==
+        expected_totals["step2_identity"], "Step-2-identity total differs")
+require(catalog_item("matlab.step2_sanitisation")["expected_pass_count"] ==
+        expected_totals["step2_sanitisation"], "Step-2-sanitisation total differs")
+require(catalog_item("matlab.step2_downstream_identity")["expected_pass_count"] ==
+        expected_totals["step2_downstream_identity"],
+        "Step-2-downstream-identity total differs")
 require(catalog_item("matlab.step8_check_plot")["expected_pass_count"] ==
         expected_totals["step8_check_plot"], "Step-8-check-plot total differs")
 
@@ -442,7 +449,7 @@ require(oracle_json["boundaries"] == {
     "university_server_accesses": 0,
     "dependency_updates": 0,
 }, "scientific-oracle boundaries differ")
-print("73 coverage rows; 42 named test groups; exact scientific-oracle cardinalities and binding")
+print("76 coverage rows; 46 named test groups; exact scientific-oracle cardinalities and binding")
 PY
 }
 
@@ -464,12 +471,16 @@ check_function_inventory() {
         calc_maxAbsPost.m \
         calc_sdEpoch.m \
         collect_guardrail_event_series.m \
+        build_pseudonymised_dataset_registry.m \
         compute_paired_effect.m \
         convert_curry_to_eeg.m \
         convert_xdf_to_eeg.m \
         delete_unwanted_events.m \
         estimate_response.m \
         jittercorrect.m \
+        inspect_identity_state.m \
+        inspect_pseudonymisation_inputs.m \
+        load_dataset_identity_registry.m \
         load_guardrail_separation_result.m \
         plot_paired_effect_result.m \
         plot_guardrail_average_psd.m \
@@ -480,16 +491,20 @@ check_function_inventory() {
         quality_control_features_with_diagnostics.m \
         read_annotations_from_xdf_csv.m \
         read_events_from_curry_cef.m \
+        run_pseudonymisation_transaction.m \
+        run_sanitisation_transaction.m \
+        sanitise_eeglab_dataset.m \
         save_paired_separation_result.m \
         ts_average_NRFshifted.m \
         ts_average_simple.m \
         ts_average_woody.m \
         ts_nrf_overlay.m \
-        validate_dataset_registry_paths.m | LC_ALL=C sort > "$expected"
+        validate_dataset_registry_paths.m \
+        verify_sanitised_eeglab_dataset.m | LC_ALL=C sort > "$expected"
     git -C "$candidate" ls-files functions | sed 's#^functions/##' | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
-    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 36 ] || return 1
-    printf 'exact 36-function inventory'
+    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 44 ] || return 1
+    printf 'exact 44-function inventory'
 }
 
 check_template_inventory() {
@@ -537,19 +552,64 @@ required = {
         "function targets = validate_dataset_registry_paths(T, baseDir, stage)",
         "SIMPLE:DatasetRegistry:CanonicalEscape",
     ],
+    "functions/build_pseudonymised_dataset_registry.m": [
+        "function mapped = build_pseudonymised_dataset_registry(original)",
+    ],
+    "functions/inspect_identity_state.m": [
+        "function state = inspect_identity_state(repositoryRoot)",
+    ],
+    "functions/load_dataset_identity_registry.m": [
+        "function identity = load_dataset_identity_registry(",
+    ],
+    "functions/inspect_pseudonymisation_inputs.m": [
+        "function snapshot = inspect_pseudonymisation_inputs(",
+    ],
+    "functions/run_pseudonymisation_transaction.m": [
+        "function result = run_pseudonymisation_transaction(",
+    ],
+    "functions/run_sanitisation_transaction.m": [
+        "function result = run_sanitisation_transaction(",
+    ],
+    "functions/sanitise_eeglab_dataset.m": [
+        "function [EEG, report] = sanitise_eeglab_dataset(",
+    ],
+    "functions/verify_sanitised_eeglab_dataset.m": [
+        "function report = verify_sanitised_eeglab_dataset(",
+    ],
     "NRFs/nrf_config.ini": ["[term_foot_nox]"],
     "scripts/log_command_window.m": [
         "logsDir = fullfile(projectRoot, 'data', 'logs');",
+    ],
+    "scripts/step_2_raw_10_pseudonymise_ids.m": [
+        "inspect_pseudonymisation_inputs",
+        "run_pseudonymisation_transaction",
+    ],
+    "scripts/step_2_raw_11_sanitise_sets.m": [
+        "build_pseudonymised_dataset_registry",
+        "inspect_pseudonymisation_inputs",
+        "run_sanitisation_transaction",
     ],
     "tests/run_all_tests.m": [
         "function results = run_all_tests(repoRoot, eeglabRoot)",
         "simple_scientific_oracle_v1.mat",
         "results.registry = run_dataset_registry_path_tests(repoRoot);",
+        "results.step2_identity = run_step2_identity_tests(repoRoot);",
+        "results.step2_sanitisation = run_step2_sanitisation_tests(repoRoot);",
+        "run_step2_downstream_identity_tests(repoRoot);",
         "results.processing_state = run_processing_state_tests(repoRoot);",
         "results.step8_check_plot = run_step8_check_plot_tests(repoRoot);",
     ],
     "tests/run_step8_check_plot_tests.m": [
         "function result = run_step8_check_plot_tests(repoRoot)",
+    ],
+    "tests/run_step2_identity_tests.m": [
+        "function result = run_step2_identity_tests(repoRoot)",
+    ],
+    "tests/run_step2_sanitisation_tests.m": [
+        "function result = run_step2_sanitisation_tests(repoRoot)",
+    ],
+    "tests/run_step2_downstream_identity_tests.m": [
+        "function result = run_step2_downstream_identity_tests(repoRoot)",
     ],
     "scripts/step_8_gen_1_check_plots.m": [
         "figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf",
@@ -663,29 +723,26 @@ import re
 import sys
 root = pathlib.Path(sys.argv[1])
 constructors = []
-bad = []
+expected_files = {
+    "functions/run_pseudonymisation_transaction.m",
+    "functions/run_sanitisation_transaction.m",
+    "scripts/log_command_window.m",
+    "scripts/step_8_gen_1_check_plots.m",
+}
 for parent in (root / "functions", root / "scripts"):
     for path in parent.glob("*.m"):
         text = path.read_text(encoding="utf-8")
         for match in re.finditer(r"fullfile\([^\n;]*['\"]logs['\"]", text,
                                  re.IGNORECASE):
             expression = match.group(0)
-            constructors.append(f"{path.relative_to(root)}:{expression}")
-            if not re.search(r"['\"]data['\"][^\n;]*['\"]logs['\"]",
-                             expression, re.IGNORECASE):
-                bad.append(f"{path.relative_to(root)}:{expression}")
-if bad:
-    raise AssertionError("; ".join(bad))
-expected_constructor_files = {
-    "scripts/log_command_window.m",
-    "scripts/step_8_gen_1_check_plots.m",
-}
+            relative = str(path.relative_to(root))
+            constructors.append(f"{relative}:{expression}")
 actual_constructor_files = {item.split(":", 1)[0] for item in constructors}
-if len(constructors) != 2 or actual_constructor_files != expected_constructor_files:
+if len(constructors) != 4 or actual_constructor_files != expected_files:
     raise AssertionError(f"log-constructor inventory differs: {constructors}")
 PY
     [ "$?" -eq 0 ] || return 1
-    printf 'logger plus exact Step 8.1 recovery-log path; replacement and ignore anchors present'
+    printf 'logger, Step 8.1 recovery path and two Step 2 log guards; replacement and ignore anchors present'
 }
 
 check_viewer_qc_example() {
@@ -768,6 +825,10 @@ check_processing_safety() {
     python3 "$candidate/tests/check_processing_safety_contracts.py" "$candidate"
 }
 
+check_step2_identity() {
+    python3 "$candidate/tests/check_step2_identity_contracts.py" "$candidate"
+}
+
 check_step5_4() {
     file="$candidate/scripts/step_5_sum_4_plot_epochs.m"
     for token in \
@@ -834,6 +895,8 @@ check_strasbourg_contract() {
         step_2_raw_7_get_channels.m \
         step_2_raw_8_filter_channels.m \
         step_2_raw_9_create_dataset_list.m \
+        step_2_raw_10_pseudonymise_ids.m \
+        step_2_raw_11_sanitise_sets.m \
         step_3_proc_1_get_event_types.m \
         step_3_proc_2_get_channels.m \
         step_3_proc_3_add_processeds.m \
@@ -859,7 +922,7 @@ check_strasbourg_contract() {
     git -C "$candidate" ls-files 'scripts/step_*.m' | \
         sed 's#^scripts/##' | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
-    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 34 ] || return 1
+    [ "$(wc -l < "$actual" | tr -d ' ')" -eq 36 ] || return 1
 
     python3 - "$candidate" <<'PY'
 import hashlib
@@ -1034,7 +1097,7 @@ require_tokens("scripts/step_8_gen_1_check_plots.m", [
     "'nrf_name', \"noxious_preterm_NRF_500Hz\"",
     "'figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf'",
 ])
-print("exact 34-script Strasbourg event/channel/window/preterm/Figure-6 contract")
+print("exact 36-script Strasbourg optional-identity/event/channel/window/preterm/Figure-6 contract")
 PY
 }
 
@@ -1277,6 +1340,10 @@ check_readme() {
         '`corr`' \
         'CleanLine is optional' \
         'Every registry path is validated before a governed write' \
+        '`step_2_raw_10_pseudonymise_ids.m`' \
+        '`step_2_raw_11_sanitise_sets.m`' \
+        '`data/raw_orig/`' \
+        'pseudonymisation, not anonymisation' \
         '### Step 8 — General manuscript output' \
         '`step_8_gen_1_check_plots.m`' \
         '`figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf`' \
@@ -1358,6 +1425,9 @@ root = pathlib.Path(sys.argv[1])
 issues = []
 checked = []
 expected_callers = {
+    "step_2_raw_9_create_dataset_list.m",
+    "step_2_raw_10_pseudonymise_ids.m",
+    "step_2_raw_11_sanitise_sets.m",
     "step_3_proc_3_add_processeds.m",
     "step_3_proc_4_preprocessing.m",
     "step_4_quant_1_QC_feature_extraction.m",
@@ -1381,9 +1451,11 @@ for path in (root / "scripts").glob("*.m"):
     if eeglab and eeglab.start() > add.start():
         issues.append(f"{path.name}: EEGLAB starts after local addpath")
     has_named_assertion = "which(" in text and re.search(
-        r"expected(?:Function|NRFUtils|NRFUtilsFile|Validator)", text)
+        r"expected(?:Function|NRFUtils|NRFUtilsFile|Validator|Inspector|Helper)",
+        text)
     has_shared_assertion = ("assert_local_helper_paths(" in text or
-                            "local_assert_helper_paths(" in text)
+                            "local_assert_helper_paths(" in text or
+                            "local_assert_helpers(" in text)
     if not (has_named_assertion or has_shared_assertion):
         issues.append(f"{path.name}: no canonical local-function assertion")
 
@@ -1420,6 +1492,7 @@ run_check 'static.repository.logs' check_logs
 run_check 'static.repository.viewer_qc_example' check_viewer_qc_example
 run_check 'static.callers.step3' check_step3
 run_check 'static.repository.processing_safety' check_processing_safety
+run_check 'static.repository.step2_identity' check_step2_identity
 run_check 'static.callers.step5_4' check_step5_4
 run_check 'static.callers.step7_2' check_step7_2
 run_check 'static.callers.step7_3' check_step7_3

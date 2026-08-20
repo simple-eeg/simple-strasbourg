@@ -8,13 +8,16 @@
     "relative_tolerance": 0
   },
   "expected_runtime_totals": {
-    "runner_sha256": "21bb137af69ef2105656b9ea85a71d28f59da47a70e96245a3f1b1e22e3c6a8d",
+    "runner_sha256": "e06c6880d2d01b039baa6ee566c5fa5815b730cefc04a685dc901511931e372c",
     "preproc": 30,
     "response": 17,
     "jitter": 11,
     "qc": 284,
     "clean_contract": 18,
     "registry": 23,
+    "step2_identity": 18,
+    "step2_sanitisation": 12,
+    "step2_downstream_identity": 8,
     "processing_state": 9,
     "step8_check_plot": 8,
     "extended": 120
@@ -484,6 +487,81 @@
         "positive_fit_saves_without_prior_nrf",
         "nonstruct_prior_nrf_cleared"
       ]
+    },
+    {
+      "id": "matlab.step2_identity",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_step2_identity_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_step2_identity_tests",
+      "expected_pass_count": 18,
+      "cases": [
+        "mapping_hierarchy_width_and_numeric_rejection",
+        "loader_modes_partial_and_leading_zeros",
+        "inspector_core_states",
+        "inspector_workspace_states",
+        "transaction_success_inventory_exclusions_and_noop",
+        "transaction_immediate_input_and_namespace_guards",
+        "transaction_inventory_guards",
+        "transaction_link_special_and_external_guards",
+        "transaction_downstream_and_storage_guards",
+        "transaction_privacy_safe_diagnostics",
+        "transaction_caught_failure_rolls_back",
+        "transaction_four_move_interruptions_recover_then_stop",
+        "transaction_empty_and_pending_workspace_preserved",
+        "transaction_foreign_and_malformed_workspace_preserved",
+        "transaction_governed_drift_preserved",
+        "step29_empty_and_original_execution",
+        "step29_mapped_and_recoverable_no_overwrite",
+        "step29_numeric_xlsx_no_overwrite"
+      ]
+    },
+    {
+      "id": "matlab.step2_sanitisation",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_step2_sanitisation_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_step2_sanitisation_tests",
+      "expected_pass_count": 12,
+      "cases": [
+        "continuous_v6_success_and_noop",
+        "epoched_wrapper_auto_v73_and_exact_mirror",
+        "authorised_metadata_science_and_leading_zeros",
+        "privacy_classification_and_redacted_diagnostics",
+        "external_pointers_mirror_and_content_rejected",
+        "verifier_rejects_policy_and_scientific_drift",
+        "prerequisite_downstream_schema_and_storage_guards",
+        "caught_failure_restores_original_state",
+        "hard_interruption_recovers_then_stops",
+        "pre_mutation_workspace_recovery",
+        "foreign_or_malformed_workspace_is_preserved",
+        "changed_raw_orig_or_unknown_active_is_preserved"
+      ]
+    },
+    {
+      "id": "matlab.step2_downstream_identity",
+      "kind": "matlab-synthetic",
+      "source": "tests/run_step2_downstream_identity_tests.m",
+      "runner": "tests/run_all_tests.m",
+      "runner_anchor": "run_step2_downstream_identity_tests",
+      "expected_pass_count": 8,
+      "cases": [
+        "three_route_step2_state_and_set_science",
+        "pooled_csv_mat_identity_and_science",
+        "screening_package_identity_and_science",
+        "viewer_title_identity_surface",
+        "screened_outputs_decision_invariance",
+        "saved_excluded_filename_identity_surface",
+        "separation_table_identity_and_science",
+        "designated_log_and_private_token_guard"
+      ]
+    },
+    {
+      "id": "static.repository.step2_identity",
+      "kind": "static-git",
+      "source": "tests/check_step2_identity_contracts.py",
+      "runner": "tests/run_static_checks.sh",
+      "runner_anchor": "static.repository.step2_identity"
     },
     {
       "id": "matlab.step8_check_plot",
@@ -1706,6 +1784,48 @@
       "category": "response-estimation"
     },
     {
+      "id": "BASE-SAF-006",
+      "requirement_key": "step2_pseudonymisation_transaction",
+      "surface": "scripts.step_2_raw_10_pseudonymise_ids",
+      "requirement": "Step 2.10 deterministically maps exact textual subject, session and run identifiers to hierarchical replacement labels with leading zeroes, preserves the complete original raw tree, copies admitted SET files byte-for-byte into the canonical replacement tree, and commits or recovers fail-closed without accepting ungoverned state.",
+      "test_refs": [
+        {
+          "test_id": "matlab.step2_identity"
+        },
+        {
+          "test_id": "static.repository.step2_identity"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-SAF-007",
+      "requirement_key": "step2_set_sanitisation_transaction",
+      "surface": "scripts.step_2_raw_11_sanitise_sets",
+      "requirement": "Step 2.11 requires the completed Step 2.10 state, sanitises only the accepted identifier- and path-bearing SET metadata, preserves scientific content, verifies controlled MAT-file output, and commits, rolls back or recovers fail-closed without changing the immutable original tree.",
+      "test_refs": [
+        {
+          "test_id": "matlab.step2_sanitisation"
+        },
+        {
+          "test_id": "static.repository.step2_identity"
+        }
+      ],
+      "category": "repository"
+    },
+    {
+      "id": "BASE-SAF-008",
+      "requirement_key": "step2_downstream_identity_propagation",
+      "surface": "scripts.downstream_identity_surfaces",
+      "requirement": "The original, Step-2.10-only and Step-2.10-plus-2.11 routes preserve scientific values while canonical replacement identifiers, including leading zeroes, propagate through identity-bearing titles, filenames, pooled CSV and MAT files, screening packages, separation tables and designated logs without exposing original identifiers.",
+      "test_refs": [
+        {
+          "test_id": "matlab.step2_downstream_identity"
+        }
+      ],
+      "category": "repository"
+    },
+    {
       "id": "BASE-DEP-002",
       "requirement_key": "dependency_present",
       "surface": "dependencies",
@@ -1755,7 +1875,7 @@
       "id": "BASE-CLS-001",
       "requirement_key": "closure_function_inventory",
       "surface": "repository.functions",
-      "requirement": "Exact 31-function workflow inventory.",
+      "requirement": "Exact 44-function workflow inventory.",
       "test_refs": [
         {
           "test_id": "static.repository.function_inventory"
@@ -1914,7 +2034,7 @@
       "id": "BASE-CLS-012",
       "requirement_key": "closure_strasbourg",
       "surface": "repository.dataset_specific_contract",
-      "requirement": "The repository contains exactly 34 Strasbourg workflow scripts with the cannula/cannula-prestim, Cz/CZ, 200/1200-ms and preterm-NRF route, ending in the sole recording-level Step 8 Figure 6 output without participant aggregation or JASP export.",
+      "requirement": "The repository contains exactly 36 Strasbourg workflow scripts with the cannula/cannula-prestim, Cz/CZ, 200/1200-ms and preterm-NRF route, ending in the sole recording-level Step 8 Figure 6 output without participant aggregation or JASP export.",
       "test_refs": [
         {
           "test_id": "static.repository.strasbourg_contract"
