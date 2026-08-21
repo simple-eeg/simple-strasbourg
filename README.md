@@ -153,6 +153,14 @@ scripts are optional:
   `.set` files while preserving the EEG signals and scientific metadata. It
   never changes `data/raw_orig/`.
 
+Both transactions tolerate ordinary, singly linked `.DS_Store` files as
+volatile macOS Finder metadata in `data/raw/` and `data/raw_orig/`. They do not
+delete these files or treat them as EEG inputs; active-tree checks and the
+`raw_orig` recovery digest ignore them. Links, hard links, and special objects
+bearing that name remain unsafe; a directory bearing it receives no exemption.
+Every other unexplained file or directory remains rejected, and the internal
+transaction workspaces remain exact and fail-closed.
+
 The supported routes are therefore: skip both scripts; run Step 2.10 only; or
 run Step 2.10 followed by Step 2.11. Running Step 2.11 without Step 2.10 is
 rejected. Both scripts are fail-closed transactions with restart recovery;

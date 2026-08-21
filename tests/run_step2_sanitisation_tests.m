@@ -51,6 +51,8 @@ fixture = create_mapped_fixture(repoRoot, false, 'top-level-fields', 1);
 cleanup = onCleanup(@() cleanup_fixture(fixture));
 activate_fixture_functions(fixture);
 registryHash = sha256_file(fixture.registry);
+activeMetadata = fullfile(fixture.root, 'data', 'raw', '.DS_Store');
+write_text(activeMetadata, 'finder preflight metadata');
 outcome = run_sanitisation_transaction(fixture.root, ...
     struct('available_bytes_override', 2^50, 'save_version', "v6"));
 assert(strcmp(outcome.status, 'completed') && outcome.verified_count == 1);
@@ -63,8 +65,21 @@ assert(strcmp(stored.subject, '001') && strcmp(stored.session, '01'));
 assert(strcmp(stored.run, '01') && isempty(stored.filepath));
 assert(~isfield(stored.event, 'bvtime') && ...
     ~isfield(stored.urevent, 'bvtime'));
+assert(isfile(activeMetadata));
 second = run_sanitisation_transaction(fixture.root);
 assert(strcmp(second.status, 'no-op') && second.no_op);
+
+midTransaction = create_mapped_fixture(repoRoot, false, ...
+    'top-level-fields', 1);
+midCleanup = onCleanup(@() cleanup_fixture(midTransaction));
+activate_fixture_functions(midTransaction);
+midMetadata = fullfile(midTransaction.root, 'data', 'raw', '.DS_Store');
+midOutcome = run_sanitisation_transaction(midTransaction.root, struct( ...
+    'available_bytes_override', 2^50, 'save_version', "v6", ...
+    'after_promotion', @(row) add_finder_metadata(row, midMetadata)));
+assert(strcmp(midOutcome.status, 'completed') && isfile(midMetadata));
+midNoOp = run_sanitisation_transaction(midTransaction.root);
+assert(strcmp(midNoOp.status, 'no-op') && midNoOp.no_op);
 end
 
 function case_epoched_v73(repoRoot)
@@ -610,14 +625,11 @@ assert_rejected(@() run_sanitisation_transaction(fixture2.root), ...
 assert(isfolder(fixture2.workspace) && ~isfile(fixture2.registry));
 assert(strcmp(sha256_file(fixture2.active_files{2}), changedActiveHash));
 
-for kind = ["preliminary", "ds_store", "excluded", "empty_directory"]
+for kind = ["preliminary", "excluded", "empty_directory"]
     drift = interrupted_full_tree_fixture(repoRoot);
     driftCleanup = onCleanup(@() cleanup_fixture(drift));
     if kind == "preliminary"
         changedPath = drift.preliminary;
-        append_byte(changedPath);
-    elseif kind == "ds_store"
-        changedPath = drift.ds_store;
         append_byte(changedPath);
     elseif kind == "excluded"
         changedPath = drift.excluded_source;
@@ -638,6 +650,20 @@ for kind = ["preliminary", "ds_store", "excluded", "empty_directory"]
         assert(strcmp(sha256_file(changedPath), changedHash));
     end
 end
+
+
+finderDrift = interrupted_full_tree_fixture(repoRoot);
+finderCleanup = onCleanup(@() cleanup_fixture(finderDrift));
+append_byte(finderDrift.ds_store);
+nestedMetadata = fullfile(fileparts(finderDrift.source_files{1}), '.DS_Store');
+write_text(nestedMetadata, 'finder metadata added after interruption');
+dsStoreHash = sha256_file(finderDrift.ds_store);
+nestedHash = sha256_file(nestedMetadata);
+outcome = run_sanitisation_transaction(finderDrift.root);
+assert(strcmp(outcome.status, 'recovered') && outcome.recovered);
+assert_original_state(finderDrift);
+assert(strcmp(sha256_file(finderDrift.ds_store), dsStoreHash));
+assert(strcmp(sha256_file(nestedMetadata), nestedHash));
 
 noOpDrift = create_mapped_fixture(repoRoot, false, 'top-level-fields', 1);
 noOpCleanup = onCleanup(@() cleanup_fixture(noOpDrift));
@@ -1018,6 +1044,12 @@ function throw_interruption(row)
 if row == 1
     error('SIMPLE:Step2Sanitise:SimulatedInterruption', ...
         'Synthetic hard interruption.');
+end
+end
+
+function add_finder_metadata(row, pathValue)
+if row == 1
+    write_text(pathValue, 'finder mid-transaction metadata');
 end
 end
 

@@ -194,8 +194,23 @@ assert(isfile(fullfile(fixture.raw_orig, '.DS_Store')));
 assert(isfolder(fullfile(fixture.raw_orig, 'empty-directory')));
 assert(isequal(sort(tree_files(fixture.raw)), sort(identity.targets.raw_files)));
 assert_sentinels(fixture);
+activeMetadata = fullfile(fixture.raw, '.DS_Store');
+nestedMetadata = fullfile(fileparts(char(identity.targets.raw_files(1))), ...
+    '.DS_Store');
+write_bytes(activeMetadata, uint8('finder root metadata'));
+write_bytes(nestedMetadata, uint8('finder nested metadata'));
 noOp = run_transaction(fixture, large_space());
 assert(noOp.status == "already_complete" && noOp.row_count == 2);
+assert(isfile(activeMetadata) && isfile(nestedMetadata));
+
+publishedFixture = make_fixture(suiteRoot, "finder_after_publish", ...
+    repoRoot, sourceRoot);
+options = large_space();
+options.after_move = @(move) add_finder_metadata( ...
+    move, 3, publishedFixture.raw);
+published = run_transaction(publishedFixture, options);
+assert(published.status == "completed");
+assert(isfile(fullfile(publishedFixture.raw, '.DS_Store')));
 
 foreignDirectory = fullfile(fixture.raw, 'foreign-empty-directory');
 mkdir(foreignDirectory);
@@ -423,6 +438,10 @@ for move = 1:4
         'SIMPLE:Step2Identity:SimulatedInterruption');
     assert_rejected(@() run_transaction(fixture, options), ...
         'SIMPLE:Step2Identity:SimulatedInterruption');
+    if move >= 3
+        write_bytes(fullfile(fixture.raw, '.DS_Store'), ...
+            uint8('finder recovery metadata'));
+    end
     assert(inspect_identity_state(fixture.root).name == ...
         "recoverable_step_2_10");
     if move == 1
@@ -486,6 +505,19 @@ mkdir(foreignDir);
 assert_rejected(@() run_transaction(fixture, large_space()), ...
     'SIMPLE:Step2Identity:RecoveryRefused');
 assert(isfolder(foreignDir));
+
+fixture = make_fixture(suiteRoot, "finder_candidate_file", ...
+    repoRoot, sourceRoot);
+options = large_space();
+options.after_move = @(move) throw_on_move(move, 1, ...
+    'SIMPLE:Step2Identity:SimulatedInterruption');
+assert_rejected(@() run_transaction(fixture, options), ...
+    'SIMPLE:Step2Identity:SimulatedInterruption');
+finderFile = fullfile(fixture.workspace10, 'raw_candidate', '.DS_Store');
+write_bytes(finderFile, uint8('foreign candidate metadata'));
+assert_rejected(@() run_transaction(fixture, large_space()), ...
+    'SIMPLE:Step2Identity:RecoveryRefused');
+assert(isfile(finderFile));
 
 fixture = make_fixture(suiteRoot, "wrong_locked_registry", ...
     repoRoot, sourceRoot);
@@ -717,6 +749,13 @@ end
 function throw_on_move(actual, targetMove, identifier)
 if actual == targetMove
     error(identifier, 'Synthetic interruption after atomic move %d.', actual);
+end
+end
+
+function add_finder_metadata(actual, targetMove, rawRoot)
+if actual == targetMove
+    write_bytes(fullfile(rawRoot, '.DS_Store'), ...
+        uint8('finder publication metadata'));
 end
 end
 

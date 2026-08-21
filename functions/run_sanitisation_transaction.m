@@ -790,6 +790,9 @@ for index = 1:numel(entries)
         directories = [directories; childDirectories]; %#ok<AGROW>
     elseif java.io.File(pathValue).isFile()
         require_regular_file(pathValue, 0);
+        if strcmp(entries(index).name, '.DS_Store')
+            continue
+        end
         files(end + 1, 1) = string(canonical_path(pathValue)); %#ok<AGROW>
     else
         error('SIMPLE:Step2Sanitise:UnexpectedActiveInventory', ...

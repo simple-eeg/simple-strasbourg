@@ -380,7 +380,11 @@ for index = 1:numel(items)
                 'The original raw tree contains a hard-linked file.');
         end
         type = 'file';
-        hash = sha256_file(pathValue);
+        if strcmp(items(index).name, '.DS_Store')
+            hash = '';
+        else
+            hash = sha256_file(pathValue);
+        end
     else
         error('SIMPLE:Step2Identity:UnsafeRawInventory', ...
             'The original raw tree contains a special filesystem object.');
@@ -405,6 +409,14 @@ for index = 1:numel(nodes)
     relative(index) = replace(extractAfter(absolute, strlength(root)), ...
         filesep, '/');
 end
+finderMetadata = false(numel(nodes), 1);
+for index = 1:numel(nodes)
+    [~, name, extension] = fileparts(nodes(index).absolute);
+    finderMetadata(index) = strcmp(nodes(index).type, 'file') && ...
+        strcmp([name extension], '.DS_Store');
+end
+relative = relative(~finderMetadata);
+nodes = nodes(~finderMetadata);
 [relative, order] = sort(relative);
 nodes = nodes(order);
 engine = java.security.MessageDigest.getInstance('SHA-256');
