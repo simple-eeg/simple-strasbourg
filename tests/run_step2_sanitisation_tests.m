@@ -80,6 +80,19 @@ midOutcome = run_sanitisation_transaction(midTransaction.root, struct( ...
 assert(strcmp(midOutcome.status, 'completed') && isfile(midMetadata));
 midNoOp = run_sanitisation_transaction(midTransaction.root);
 assert(strcmp(midNoOp.status, 'no-op') && midNoOp.no_op);
+
+descriptionFixture = create_mapped_fixture(repoRoot, false, ...
+    'top-level-fields', 1);
+descriptionCleanup = onCleanup(@() cleanup_fixture(descriptionFixture));
+activate_fixture_functions(descriptionFixture);
+descriptionEEG = load('-mat', descriptionFixture.source);
+descriptionEEG.eventdescription = {'legacy event-field description'};
+save_fixture_set(descriptionFixture.source, descriptionEEG, ...
+    'top-level-fields', '-v6');
+assert(copyfile(descriptionFixture.source, descriptionFixture.active, 'f'));
+descriptionOutcome = run_sanitisation_transaction(descriptionFixture.root, ...
+    struct('available_bytes_override', 2^50, 'save_version', "v6"));
+assert(strcmp(descriptionOutcome.status, 'completed'));
 end
 
 function case_epoched_v73(repoRoot)
@@ -118,6 +131,10 @@ end
 function case_metadata_policy()
 EEG = make_eeg(false);
 EEG.urevent = rmfield(EEG.event, 'urevent');
+eventFields = fieldnames(EEG.event);
+eventBvtime = find(strcmp(eventFields, 'bvtime'));
+expectedEventDescriptions = EEG.eventdescription;
+expectedEventDescriptions(eventBvtime) = [];
 EEG.icaweights = eye(2);
 EEG.icasphere = eye(2);
 EEG.etc.safeNumeric = [1 2 3];
@@ -127,6 +144,7 @@ EEG.etc.safeNumeric = [1 2 3];
 assert(isequal(clean.data, EEG.data) && isequal(clean.icaweights, eye(2)));
 assert(isequal(clean.etc.safeNumeric, [1 2 3]));
 assert(isequal([clean.chanlocs.impedance], [4.2 5.3]));
+assert(isequal(clean.eventdescription, expectedEventDescriptions));
 assert(strcmp(clean.group, 'control') && strcmp(clean.condition, 'pain'));
 assert(strcmp(clean.subject, '001') && strcmp(clean.session, '01'));
 assert(strcmp(clean.run, '01') && isempty(clean.filepath));
@@ -217,8 +235,11 @@ numericSubject.original_subject_id = '6';
 assert_rejected(@() sanitise_eeglab_dataset(set_field(base, 'group', ...
     'phase6'), expected_identity(), numericSubject), ...
     'SIMPLE:Step2Sanitise:ResidualIdentifier');
+clean = sanitise_eeglab_dataset(set_etc_field(base, ...
+    'metric6value', 1), expected_identity(), numericSubject);
+assert(clean.etc.metric6value == 1);
 assert_rejected(@() sanitise_eeglab_dataset(set_etc_field(base, ...
-    'metric6value', 1), expected_identity(), numericSubject), ...
+    'subject6value', 1), expected_identity(), numericSubject), ...
     'SIMPLE:Step2Sanitise:RiskyField');
 numericVersionSafe = base;
 numericVersionSafe.etc.eeglabvers = '2026.0';
@@ -986,10 +1007,22 @@ end
 for index = 1:numel(EEG.urevent)
     EEG.urevent(index).bvtime = sprintf('private-time-%d', index);
 end
+eventFields = fieldnames(EEG.event);
+eventFields(strcmp(eventFields, 'bvtime')) = [];
+eventFields = [eventFields(1:3); {'bvtime'}; eventFields(4:end)];
+EEG.event = orderfields(EEG.event, eventFields);
+EEG.eventdescription = cellfun(@(name) ['description-' name], ...
+    reshape(eventFields, 1, []), 'UniformOutput', false);
 if epoched
     for index = 1:numel(EEG.epoch)
         EEG.epoch(index).eventbvtime = {sprintf('private-time-%d', index)};
     end
+    epochFields = fieldnames(EEG.epoch);
+    epochFields(strcmp(epochFields, 'eventbvtime')) = [];
+    epochFields = [epochFields(1); {'eventbvtime'}; epochFields(2:end)];
+    EEG.epoch = orderfields(EEG.epoch, epochFields);
+    EEG.epochdescription = cellfun(@(name) ['description-' name], ...
+        reshape(epochFields, 1, []), 'UniformOutput', false);
 end
 end
 

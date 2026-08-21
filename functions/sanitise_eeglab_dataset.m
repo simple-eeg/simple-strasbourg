@@ -16,6 +16,8 @@ report.schema = 'simple-step2-sanitisation-report-v1';
 report.event_bvtime_removed = field_count(EEG, 'event', 'bvtime');
 report.urevent_bvtime_removed = field_count(EEG, 'urevent', 'bvtime');
 report.epoch_eventbvtime_removed = field_count(EEG, 'epoch', 'eventbvtime');
+report.event_description_removed = 0;
+report.epoch_description_removed = 0;
 if report.epoch_eventbvtime_removed > 0
     verify_epoch_bvtime_mirror(EEG, privacy);
 end
@@ -29,12 +31,22 @@ EEG.session = expected.sessionID;
 EEG.run = expected.runID;
 EEG.comments = '';
 EEG.history = '';
-for pair = {'event', 'bvtime'; 'urevent', 'bvtime'; ...
-        'epoch', 'eventbvtime'}.'
-    parent = pair{1};
-    field = pair{2};
+removals = {'event', 'bvtime', 'eventdescription'; ...
+    'urevent', 'bvtime', ''; ...
+    'epoch', 'eventbvtime', 'epochdescription'};
+for index = 1:size(removals, 1)
+    parent = removals{index, 1};
+    field = removals{index, 2};
+    description = removals{index, 3};
     if isfield(EEG, parent) && isstruct(EEG.(parent)) && ...
             isfield(EEG.(parent), field)
+        [EEG, descriptionRemoved] = remove_field_description( ...
+            EEG, parent, field, description);
+        if strcmp(description, 'eventdescription')
+            report.event_description_removed = descriptionRemoved;
+        elseif strcmp(description, 'epochdescription')
+            report.epoch_description_removed = descriptionRemoved;
+        end
         EEG.(parent) = rmfield(EEG.(parent), field);
     end
 end
@@ -44,7 +56,25 @@ report.fields_scanned = scan.fields;
 report.text_values_scanned = scan.texts;
 report.requires_v73 = scan.requires_v73;
 report.authorised_changes = 8 + report.event_bvtime_removed + ...
-    report.urevent_bvtime_removed + report.epoch_eventbvtime_removed;
+    report.urevent_bvtime_removed + report.epoch_eventbvtime_removed + ...
+    report.event_description_removed + report.epoch_description_removed;
+end
+
+function [EEG, removed] = remove_field_description( ...
+        EEG, parent, field, description)
+removed = 0;
+if isempty(description) || ~isfield(EEG, description) || ...
+        ~iscell(EEG.(description)) || ~isvector(EEG.(description))
+    return
+end
+fields = fieldnames(EEG.(parent));
+fieldIndex = find(strcmp(fields, field), 1);
+descriptions = EEG.(description);
+if numel(descriptions) == numel(fields)
+    descriptions(fieldIndex) = [];
+    EEG.(description) = descriptions;
+    removed = 1;
+end
 end
 
 function expected = validate_expected(expected, privacy)
@@ -267,7 +297,11 @@ if any(strcmpi(location, exceptions))
 end
 lowerName = lower(name);
 for index = 1:numel(privacy.subject_tokens)
-    if blocked_token_present(lowerName, privacy.subject_tokens(index), true)
+    subjectToken = char(privacy.subject_tokens(index));
+    if ~isempty(regexp(subjectToken, '^\d+$', 'once'))
+        continue
+    end
+    if blocked_token_present(lowerName, subjectToken, true)
         tf = true;
         return
     end

@@ -123,6 +123,13 @@ if isfield(EEG, 'changes_not_saved') && ...
         ~isfield(storedEEG, 'changes_not_saved')
     EEG = rmfield(EEG, 'changes_not_saved');
 end
+for name = {'eventdescription', 'epochdescription'}
+    if isfield(storedEEG, name{1})
+        EEG.(name{1}) = storedEEG.(name{1});
+    elseif isfield(EEG, name{1})
+        EEG = rmfield(EEG, name{1});
+    end
+end
 end
 
 function fail(identifier, privacy, message)

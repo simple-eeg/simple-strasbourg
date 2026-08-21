@@ -61,6 +61,9 @@ try
     assert_no_pseudonymisation_workspace(paths);
     atomic_move(paths.registry, paths.locked_registry, false);
     for row = 1:identity.recording_count
+        fprintf('Step 2.11 [%d/%d] sanitising and verifying %s\n', ...
+            row, identity.recording_count, ...
+            char(identity.table.EEGfile_raw(row)));
         source = set_path(identity, row, true);
         active = set_path(identity, row, false);
         require_hash(source, manifest.source_hashes{row}, row);
@@ -577,6 +580,9 @@ tf = false;
 try
     assert_exact_active_inventory(identity);
     for row = 1:identity.recording_count
+        fprintf('Step 2.11 final verification [%d/%d]: %s\n', ...
+            row, identity.recording_count, ...
+            char(identity.table.EEGfile_raw(row)));
         require_hash(set_path(identity, row, true), ...
             manifest.source_hashes{row}, row);
         verify_sanitised_eeglab_dataset(set_path(identity, row, true), ...
