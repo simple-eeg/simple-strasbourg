@@ -1141,7 +1141,7 @@ if actual != expected:
 
 source_hashes = {
     "scripts/step_8_gen_1_check_plots.m":
-        "53725c42043a44acb2d521e39f8ba3276c45072826a8452334d1c42103831ade",
+        "ed06bda04878e7fa2be4f3fae775e51d0b3a4ead90cc2f90fea2b4974f95b41b",
     "functions/collect_guardrail_event_series.m":
         "09fd57796d147f88c008d6a0add4c37ad658ec61f40cff549c349c9541555dc5",
     "functions/plot_guardrail_average_ts.m":
@@ -1206,10 +1206,10 @@ step81_anchors = [
     "'frequency_limits_hz', [-1 251]", "'time_bandwidth_product', 4",
     "'nfft', 1024", "'alpha', 0.05", "'figure_position_cm', [2 2 18 24]",
     "'part_a', 'A. Time and frequency domain checks'",
-    "'reference', 'Internal reference (cannula_prestim)'",
-    "'true', 'True event (cannula)'",
+    "'reference', 'Internal reference'",
+    "'true', 'True event'",
     "'part_b', 'B. Feature separation checks'",
-    "'qc', 'QC feature (MeanAbsDiffNorm)'",
+    "'qc', 'QC feature'",
     "'nrf', 'Preterm noxious NRF magnitude'",
     "figure6Config = struct();", "figure6PanelData = struct();",
     "figure6PanelHandles = struct();", "figure6Figure = figure(",
