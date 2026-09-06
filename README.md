@@ -209,6 +209,10 @@ fits. Step 5 creates individual and pooled summaries. Step 6 creates the fixed
 screening package, records manual decisions and applies them to pooled outputs.
 Step 7 provides display and machine-readable checks of the screened results.
 
+The Step 6.2 viewer offers `File > Save PDF...` to save the complete current
+display, including all plots and the Navigator, to a PDF location chosen by
+the user. Exporting this snapshot does not change the screening decisions.
+
 The Strasbourg settings use `cannula` and `cannula_prestim` epochs at `Cz`, a
 200 ms pre-event and 1200 ms post-event epoch, and the configured preterm NRF
 route. Review these settings against the intended execution before running the

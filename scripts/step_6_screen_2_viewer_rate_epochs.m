@@ -4,6 +4,7 @@
 %   - Create/load screening_decisions.mat (mutable)
 %   - Provide a mouse-only viewer to rate (exclude/un-exclude) each epoch–channel item
 %   - Autosave decisions atomically on each decision change
+%   - Save the complete current viewer (plots and Navigator) to PDF on request
 %
 % Notes (current behaviour)
 %   - Screening unit is the epoch–channel pair ("item").
@@ -296,6 +297,11 @@ fig = figure( ...
     'Position', [0.05, 0.06, 0.90, 0.88], ...
     'CloseRequestFcn', @on_close);
 
+% Single-purpose export menu; keep MATLAB's default menus and toolbar hidden.
+fileMenu = uimenu(fig, 'Text', 'File');
+uimenu(fileMenu, 'Text', 'Save PDF...', ...
+    'MenuSelectedFcn', @(src,evt) on_save_pdf(src,evt));
+
 % Panels
 plotPanel = uipanel(fig, 'Units','normalized', 'Position',[0.02 0.04 0.76 0.92], 'BorderType','none');
 ctlPanel  = uipanel(fig, 'Units','normalized', 'Position',[0.80 0.04 0.18 0.92], 'Title','Navigator');
@@ -338,7 +344,7 @@ btn_finish = uicontrol(ctlPanel, 'Style','pushbutton', 'String','Finish', 'Units
     'Position',[0.06 0.13 0.88 0.06], 'Callback', @(src,evt) on_finish(src,evt));
 
 txt_help = uicontrol(ctlPanel, 'Style','text', 'Units','normalized', ...
-    'Position',[0.06 0.02 0.88 0.10], 'HorizontalAlignment','left', 'BackgroundColor','w', ...
+    'Position',[0.06 0.01 0.88 0.11], 'HorizontalAlignment','left', 'BackgroundColor','w', ...
     'String', sprintf(['Mouse-only controls:\n', ...
     '• Click a QC dot to show item_id\n', ...
     '• Click an item ID\n', ...
@@ -437,6 +443,44 @@ function on_finish(src, ~)
 fig = ancestor(src, 'figure');
 if isempty(fig) || ~ishandle(fig), return; end
 on_close(fig, []);
+end
+
+function on_save_pdf(src, ~)
+fig = ancestor(src, 'figure');
+if isempty(fig) || ~ishandle(fig), return; end
+
+S = guidata(fig);
+if S.decisions.exclude_mask(S.current_item_id)
+    itemStatus = 'excluded';
+else
+    itemStatus = 'included';
+end
+defaultName = sprintf('simple_screening_item-%06d_%s.pdf', ...
+    S.current_item_id, itemStatus);
+
+[fileName, fileDir] = uiputfile( ...
+    {'*.pdf', 'PDF file (*.pdf)'}, ...
+    'Save current viewer as PDF', defaultName);
+if isequal(fileName, 0) || isequal(fileDir, 0)
+    return
+end
+
+[~, ~, fileExt] = fileparts(fileName);
+if ~strcmpi(fileExt, '.pdf')
+    warning('SIMPLE:Screening:ExportExtension', ...
+        'Choose a filename ending in .pdf. No file was saved.');
+    return
+end
+
+outputPath = fullfile(fileDir, fileName);
+try
+    drawnow limitrate nocallbacks
+    exportapp(fig, outputPath);
+    fprintf('Saved viewer PDF: %s\n', outputPath);
+catch ME
+    warning('SIMPLE:Screening:ExportFailed', ...
+        'Could not save the viewer PDF: %s', ME.message);
+end
 end
 
 function on_close(src, ~)
