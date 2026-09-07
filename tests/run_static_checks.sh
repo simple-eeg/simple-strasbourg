@@ -612,7 +612,7 @@ required = {
         "function result = run_step2_downstream_identity_tests(repoRoot)",
     ],
     "scripts/step_8_gen_1_check_plots.m": [
-        "figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf",
+        "figure_3b_post_screening_descriptive_checks_noci_prem.pdf",
     ],
 }
 for relative, anchors in required.items():
@@ -1095,9 +1095,9 @@ require_tokens("scripts/step_7_check_7_sep_check_nrf.m", [
 require_tokens("scripts/step_8_gen_1_check_plots.m", [
     "'ordered', [\"cannula_prestim\", \"cannula\"]",
     "'nrf_name', \"noxious_preterm_NRF_500Hz\"",
-    "'figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf'",
+    "'figure_3b_post_screening_descriptive_checks_noci_prem.pdf'",
 ])
-print("exact 36-script Strasbourg optional-identity/event/channel/window/preterm/Figure-6 contract")
+print("exact 36-script Strasbourg optional-identity/event/channel/window/preterm/Figure-3b contract")
 PY
 }
 
@@ -1141,7 +1141,7 @@ if actual != expected:
 
 source_hashes = {
     "scripts/step_8_gen_1_check_plots.m":
-        "ed06bda04878e7fa2be4f3fae775e51d0b3a4ead90cc2f90fea2b4974f95b41b",
+        "d4b5cb3709967414dd47f84d1693aa1bd54a5188fd55e13bb059be830fecbaf2",
     "functions/collect_guardrail_event_series.m":
         "09fd57796d147f88c008d6a0add4c37ad658ec61f40cff549c349c9541555dc5",
     "functions/plot_guardrail_average_ts.m":
@@ -1181,14 +1181,15 @@ if step81.count("log_command_window('start');") != 1 or \
 for anchor in (
     "try", "catch ME", "rethrow(ME);", "figure6LogActive",
     "figure6LogStopAttempted",
-    "Completed Step 8.1 guardrail figure preparation; committing PDF:",
+    "Completed Step 8.1 post-screening descriptive-check figure ",
+    "preparation; committing PDF: %s\\n",
 ):
     if anchor not in step81:
         raise AssertionError(f"Step 8.1 guarded finaliser lacks {anchor}")
 
 step81_anchors = [
     "resultsDir = fullfile(baseDir, 'data', 'results');",
-    "'figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf'",
+    "'figure_3b_post_screening_descriptive_checks_noci_prem.pdf'",
     "'step_8_gen_1_check_plots.log'",
     "'pooled_screened_eeg_epochs.mat'",
     "'step_7_check_6_sep_check_qc_result.mat'",
@@ -1205,10 +1206,12 @@ step81_anchors = [
     "'aggregate_domain', \"linear_power\"",
     "'frequency_limits_hz', [-1 251]", "'time_bandwidth_product', 4",
     "'nfft', 1024", "'alpha', 0.05", "'figure_position_cm', [2 2 18 24]",
-    "'part_a', 'A. Time and frequency domain checks'",
+    "'part_a', 'Time and frequency domain checks'",
     "'reference', 'Internal reference'",
     "'true', 'True event'",
-    "'part_b', 'B. Feature separation checks'",
+    "'part_b', 'Feature separation checks'",
+    "'figure6-label-part-a', 'center'",
+    "'figure6-label-part-b', 'center'",
     "'qc', 'QC feature'",
     "'nrf', 'Preterm noxious NRF magnitude'",
     "figure6Config = struct();", "figure6PanelData = struct();",
@@ -1274,7 +1277,7 @@ if "figure(" in (root / "functions" / "plot_guardrail_average_ts.m").read_text(e
 readme = (root / "README.md").read_text(encoding="utf-8")
 for anchor in (
     "step_8_gen_1_check_plots.m",
-    "figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf",
+    "figure_3b_post_screening_descriptive_checks_noci_prem.pdf",
     "four rows and two columns",
     "without rerunning their bootstrap",
     "does not call a Step 7 script",
@@ -1282,7 +1285,7 @@ for anchor in (
 ):
     if anchor not in readme:
         raise AssertionError(f"README lacks the Step 8.1 contract: {anchor}")
-print("one exact Step 8 script; fixed recording-level Figure 6 helper and transaction route")
+print("one exact Step 8 script; fixed recording-level Figure 3b helper and transaction route")
 PY
 }
 
@@ -1346,7 +1349,7 @@ check_readme() {
         'pseudonymisation, not anonymisation' \
         '### Step 8 — General manuscript output' \
         '`step_8_gen_1_check_plots.m`' \
-        '`figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf`' \
+        '`figure_3b_post_screening_descriptive_checks_noci_prem.pdf`' \
         'four rows and two columns' \
         'without rerunning their bootstrap' \
         'does not call a Step 7 script' \

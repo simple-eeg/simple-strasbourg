@@ -3,7 +3,7 @@
 SIMPLE Strasbourg is the MATLAB/EEGLAB workflow for the NOCI-Prem neonatal EEG
 dataset supplied by the Strasbourg collaborators. It covers BrainVision source
 preparation, the complete SIMPLE EEG workflow, and the Strasbourg-specific
-post-core guardrail figure.
+post-screening descriptive-check figure.
 
 Associated methods paper: citation and link to be added when available.
 
@@ -220,12 +220,12 @@ dependent scripts.
 
 ### Step 8 — General manuscript output
 
-`step_8_gen_1_check_plots.m` creates the fixed post-core guardrail Figure 6
-under `data/results/` and leaves the corresponding MATLAB figure, configuration,
-calculated panel data and graphics handles in the workspace for inspection. It
-loads the screened pooled epochs and the saved Step 7.6/7.7 separation results,
-then writes
-`figure_6_post_core_guardrails_in_the_noci_prem_dataset.pdf` as a vector PDF.
+`step_8_gen_1_check_plots.m` creates the fixed post-screening descriptive-check
+Figure 3b under `data/results/` and leaves the corresponding MATLAB figure,
+configuration, calculated panel data and graphics handles in the workspace for
+inspection. It loads the screened pooled epochs and the saved Step 7.6/7.7
+separation results, then writes
+`figure_3b_post_screening_descriptive_checks_noci_prem.pdf` as a vector PDF.
 
 The figure has four rows and two columns: recording-level average time series,
 time-frequency and PSD panels for `cannula_prestim` and `cannula`, followed by
@@ -251,11 +251,11 @@ windows, NRF profiles, screening settings, exclusion handling and Step 8 plot
 settings.
 
 The core processing unit is one analysed event-channel instance. NOCI-Prem
-recordings remain separate through Steps 1–8, including the Figure 6 guardrail
-display. This descriptive manuscript figure does not perform group-level
-inference. Any later group-level inference requires one prespecified
-participant-level contribution or an analysis that accounts for repeated
-observations.
+recordings remain separate through Steps 1–8, including the Figure 3b
+post-screening descriptive-check display. This descriptive manuscript figure
+does not perform group-level inference. Any later group-level inference
+requires one prespecified participant-level contribution or an analysis that
+accounts for repeated observations.
 
 Source data, manual screening, figures and final statistical interpretation
 remain human-reviewed scientific inputs. A successful script or regression
@@ -267,7 +267,7 @@ test establishes technical behaviour; it does not replace those decisions.
 preprocessing, response, jitter and QC contracts, all six bundled templates,
 registry paths, the optional Step 2 identity and `.set`-sanitisation
 transactions, effective preprocessing provenance, stale-NRF clearing, path
-precedence, local template binding, the Step 8 guardrail-figure transaction,
+precedence, local template binding, the Step 8 descriptive-check figure transaction,
 and the public APIs in the verified MATLAB/EEGLAB environment. It does not read
 project datasets or run a numbered workflow script against repository data.
 
