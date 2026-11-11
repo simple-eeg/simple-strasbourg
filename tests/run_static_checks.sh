@@ -276,7 +276,7 @@ require(all(isinstance(x, str) and x for x in catalog_ids), "blank catalog id")
 require(len(catalog_ids) == len(set(catalog_ids)), "duplicate catalog id")
 catalog_by_id = {item["id"]: item for item in catalog}
 
-expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_step81","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","step2_downstream_identity_propagation","step2_pseudonymisation_transaction","step2_set_sanitisation_transaction","step8_guardrail_figure","templates_six_rates","warning_restoration"])
+expected_keys = set(["baseline_routes","cleanline_routes","closure_clone","closure_config","closure_current_surface","closure_function_inventory","closure_generated","closure_git","closure_ignore_hyp","closure_ignore_real","closure_logs","closure_manifest","closure_paths","closure_readme","closure_root","closure_step54","closure_step72","closure_step73","closure_step81","closure_strasbourg","closure_templates","closure_viewer_qc_example","config_profiles_cache","dataset_registry_paths","delete_contracts","dependency_missing","dependency_present","effective_preprocessing_provenance","epoch_failures","epoch_modes","filter_modes","jitter_edges","jitter_shapes_shifts","jitter_ties_padding","line_frequency_edges","line_off_notch","nrf_clear_persistence","nrf_template_preflight","numeric_results","offset_consistency","offset_mapping_fields","offset_no_event","offset_no_source","offset_oob","offset_report_keys","offset_validation","prep_defaults","prep_empty_array","prep_empty_data","prep_inputs","prep_multi_array","preproc_order_history","preprocessing_caller_contract","qc_coord_schema","qc_direct_matrix","qc_overwrite_array_times","registry_write_preflight","reref_modes","resample_modes","resolver_failures_shadow","resolver_local_explicit","response_channel","response_every_epoch_array","response_inputs_defaults","response_insufficient","response_public_contract","response_rate_grid_bounds","response_scalar_options","response_schema_history","response_xor","step2_downstream_identity_propagation","step2_pseudonymisation_transaction","step2_set_sanitisation_transaction","step8_guardrail_figure","templates_three_500hz","warning_restoration"])
 actual_keys = [row.get("requirement_key") for row in coverage]
 require(len(actual_keys) == len(set(actual_keys)), "duplicate requirement key")
 require(set(actual_keys) == expected_keys, "required coverage-key set differs")
@@ -339,7 +339,7 @@ def catalog_item(test_id):
     return catalog_by_id[test_id]
 
 require(len(catalog_item("matlab.preproc.oracle")["cases"]) == 30, "preproc oracle count")
-require(len(catalog_item("matlab.response.oracle")["cases"]) == 17, "response oracle count")
+require(len(catalog_item("matlab.response.oracle")["cases"]) == 11, "response oracle count")
 require(len(catalog_item("matlab.jitter.oracle")["cases"]) == 11, "jitter oracle count")
 require(len(catalog_item("matlab.qc.coordinator.oracle")["cases"]) == 9, "QC coordinator count")
 direct = catalog_item("matlab.qc.direct.oracle")
@@ -360,7 +360,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"e06c6880d2d01b039baa6ee566c5fa5815b730cefc04a685dc901511931e372c","preproc":30,"response":17,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"step2_identity":18,"step2_sanitisation":12,"step2_downstream_identity":8,"processing_state":9,"step8_check_plot":8,"extended":120}
+expected_totals = {"runner_sha256":"27bf9148afd3f83b8c277fa957c49d5379b06c927b4e55fbcefd086679711c39","preproc":30,"response":11,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"step2_identity":18,"step2_sanitisation":12,"step2_downstream_identity":8,"processing_state":9,"step8_check_plot":8,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()
@@ -413,7 +413,7 @@ require(oracle_json["environment"] == {
     "matlab": "26.1.0.3312084 (R2026a) Update 4",
     "matlab_release": "2026a",
     "eeglab": "2026.0.0",
-    "host": "macOS 26.6.1 build 25G76 arm64",
+    "host": "macOS 27.2 build 26B123 arm64",
 }, "scientific-oracle environment differs")
 require(oracle_json["comparison"] == {
     "exact_behaviour": "strict isequaln",
@@ -424,17 +424,17 @@ require(oracle_json["comparison"] == {
 }, "scientific-oracle comparison policy differs")
 require(oracle_json["case_counts"] == {
     "preprocessing": 30,
-    "response": 17,
+    "response": 11,
     "jitter": 11,
     "quality_control_coordinator": 9,
     "quality_control_direct": 275,
-    "templates": 6,
+    "templates": 3,
 }, "scientific-oracle case counts differ")
 fixture = oracle_json["fixture"]
 require(fixture == {
     "path": "tests/fixtures/simple_scientific_oracle_v1.mat",
-    "bytes": 5157895,
-    "sha256": "5477d510e9d321c26ce47ab14d13f335b79400285c0615860488d219b40bf547",
+    "bytes": 3166162,
+    "sha256": "fc99ea8862378f6b70113a9f871ecbe375f007319ea90f5772d447e2d1e4fb82",
 }, "scientific-oracle fixture binding differs")
 fixture_path = root / fixture["path"]
 require(fixture_path.is_file(), "scientific-oracle fixture is missing")
@@ -511,23 +511,20 @@ check_template_inventory() {
     expected="$work_root/templates.expected"
     actual="$work_root/templates.actual"
     printf '%s  %s\n' \
-        dc63ba1418a5492bbc7c7c21bc399eb74fcdef42941b66a64624cfdf114e95e5 early_NRF_2000Hz.mat \
-        c036e1aa2905298b0d50a91e41c9353c4121507e2e3fa1062aaec9c247099059 early_NRF_500Hz.mat \
-        a8f962450b8674003cfc32d41bf5508b39e1a2bbe87e5b7313255a0a8ec341e6 noxious_NRF_2000Hz.mat \
-        d4552315c38abcf030922719b8f707de82fa5707c849d31888034e459fa42d62 noxious_NRF_500Hz.mat \
-        f0de306e714f3d77bb021261bc3a84c55d85818dec3264928fb4a658426e733e noxious_preterm_NRF_2000Hz.mat \
-        8acf14c5401d0af20391e329fcc17de8cf119c691da0ca7072ae328ddc7ea375 noxious_preterm_NRF_500Hz.mat \
+        3cd5eb2385ef9e358c6107ed88912e1f2b9e1d9abf4efa1d38380e115452bf02 early_NRF_500Hz.mat \
+        cd9f22b8fa8401ee11fb18d4907dd687732c7bfb0b8f5c790b16dd580e24520f noxious_NRF_500Hz.mat \
+        37d9b0b4208e192c4dc881f46e541b150bc279e19c45d6251e7e80b217467721 noxious_preterm_NRF_500Hz.mat \
         | LC_ALL=C sort > "$expected"
     for path in "$candidate"/NRFs/*.mat; do
         printf '%s  %s\n' "$(shasum -a 256 "$path" | awk '{print $1}')" "$(basename -- "$path")"
     done | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
     [ -f "$candidate/NRFs/nrf_config.ini" ] || return 1
-    [ "$(git -C "$candidate" ls-files NRFs | wc -l | tr -d ' ')" -eq 7 ] || {
-        printf 'NRFs tracked inventory is not exactly six templates plus nrf_config.ini\n'
+    [ "$(git -C "$candidate" ls-files NRFs | wc -l | tr -d ' ')" -eq 4 ] || {
+        printf 'NRFs tracked inventory is not exactly three templates plus nrf_config.ini\n'
         return 1
     }
-    printf 'six exact template digests and local INI'
+    printf 'three exact template digests and local INI'
 }
 
 check_current_surface() {
@@ -1301,9 +1298,8 @@ bad = []
 blocked_suffixes = {".set", ".fdt", ".log", ".fig", ".png", ".csv", ".xlsx",
                     ".asv", ".partial", ".tmp"}
 allowed_mat = {
-    "NRFs/early_NRF_2000Hz.mat", "NRFs/early_NRF_500Hz.mat",
-    "NRFs/noxious_NRF_2000Hz.mat", "NRFs/noxious_NRF_500Hz.mat",
-    "NRFs/noxious_preterm_NRF_2000Hz.mat",
+    "NRFs/early_NRF_500Hz.mat",
+    "NRFs/noxious_NRF_500Hz.mat",
     "NRFs/noxious_preterm_NRF_500Hz.mat",
     "tests/fixtures/simple_scientific_oracle_v1.mat",
 }
@@ -1364,9 +1360,9 @@ check_readme() {
         }
     done
     for template in \
-        early_NRF_500Hz.mat early_NRF_2000Hz.mat \
-        noxious_NRF_500Hz.mat noxious_NRF_2000Hz.mat \
-        noxious_preterm_NRF_500Hz.mat noxious_preterm_NRF_2000Hz.mat; do
+        early_NRF_500Hz.mat \
+        noxious_NRF_500Hz.mat \
+        noxious_preterm_NRF_500Hz.mat; do
         [ "$(grep -Fc "$template" "$file")" -ge 1 ] || {
             printf 'README template listing missing: %s\n' "$template"
             return 1
@@ -1412,7 +1408,7 @@ check_config_location() {
     grep -Fq "fullfile(repoRoot, 'NRFs', 'nrf_config.ini')" \
         "$candidate/tests/run_all_tests.m" || return 1
     digest=$(shasum -a 256 "$candidate/NRFs/nrf_config.ini" | awk '{print $1}')
-    [ "$digest" = '07dde048029d3fa85d0a98685f3008bca074bd85cebeb79cdc73b99dd6180de9' ] || {
+    [ "$digest" = 'd26673b1b10dc8ff2365b796cd62b520887c7d5b26ecde7063a127babfa35cb0' ] || {
         printf 'NRF configuration digest differs: %s\n' "$digest"
         return 1
     }
@@ -1471,7 +1467,7 @@ if set(checked) != expected_callers:
 
 for path in list((root / "functions").glob("*.m")) + list((root / "scripts").glob("*.m")):
     text = path.read_text(encoding="utf-8")
-    if re.search(r"which\s*\([^)]*(?:NRF_500Hz|NRF_2000Hz|NRFName|templateReference)", text):
+    if re.search(r"which\s*\([^)]*(?:NRF_[0-9]+Hz|NRFName|templateReference)", text):
         issues.append(f"{path.relative_to(root)}: ambient template which lookup")
 
 utils = (root / "functions" / "NRFUtils.m").read_text(encoding="utf-8")

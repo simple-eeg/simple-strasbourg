@@ -1054,11 +1054,19 @@ boundProfile.proj_scalar = -zeroTime + boundProfile.jitter - 1;
 assert_any_error(@() NRFUtils.fitAndCache(fixture, ...
     struct('bound', boundProfile), {'bound'}, labels, zeroTime, repoRoot), ...
     'fitAndCache accepted a search start before its jitter bound.');
+rateRoot = fullfile(temporaryRoot, 'rate_repository');
+mkdir(fullfile(rateRoot, 'NRFs'));
+NRF = sin((0:15)' * pi / 8);
+NRF = NRF - mean(NRF);
+NRF = NRF / norm(NRF, 2); %#ok<NASGU>
+fs = double(fixture.srate) * 2; %#ok<NASGU>
+save(fullfile(rateRoot, 'NRFs', 'wrong_rate_template.mat'), 'NRF', 'fs');
 rateProfile = profile;
-rateProfile.NRFName = 'early_NRF_2000Hz';
-assert_any_error(@() NRFUtils.fitAndCache(fixture, ...
-    struct('rate', rateProfile), {'rate'}, labels, zeroTime, repoRoot), ...
-    'fitAndCache accepted a template/data rate mismatch.');
+rateProfile.NRFName = 'wrong_rate_template';
+assert_error_message(@() NRFUtils.fitAndCache(fixture, ...
+    struct('rate', rateProfile), {'rate'}, labels, zeroTime, rateRoot), ...
+    sprintf('Sampling-rate mismatch for %s: NRF fs=%g, EEG.srate=%g', ...
+    rateProfile.NRFName, fs, fixture.srate));
 passed = passed + 3;
 
 edgeProfile = profile;
@@ -1133,7 +1141,12 @@ nonuniform(10) = nonuniform(10) + 0.25;
 assert_error_id(@() ts_nrf_overlay(y, templateName, nonuniform, ...
     400, 20), 'ts_nrf_overlay:TimesNotUniform', ...
     'overlay nonuniform sample grid');
-wrongRate = fullfile(templatesRoot, 'noxious_NRF_2000Hz.mat');
+wrongRate = fullfile(shadowRoot, 'wrong_rate_template.mat');
+NRF = sin((0:15)' * pi / 8);
+NRF = NRF - mean(NRF);
+NRF = NRF / norm(NRF, 2); %#ok<NASGU>
+fs = double(template.fs) * 2; %#ok<NASGU>
+save(wrongRate, 'NRF', 'fs');
 assert_error_id(@() ts_nrf_overlay(y, wrongRate, times, 400, 20), ...
     'ts_nrf_overlay:FsMismatch', 'overlay wrong template rate');
 passed = passed + 3;
@@ -1372,6 +1385,10 @@ end
 
 function assert_template_inventory(expected, templateRoot)
 assert(isfolder(templateRoot), 'Missing repository-local NRF directory.');
+expectedNames = {'early_NRF_500Hz', 'noxious_NRF_500Hz', ...
+    'noxious_preterm_NRF_500Hz'};
+assert(isequal(sort({expected.name}), sort(expectedNames)), ...
+    'The template fixture must describe exactly the three 500-Hz NRFs.');
 listing = dir(fullfile(templateRoot, '*.mat'));
 assert(numel(listing) == numel(expected), ...
     'Repository-local NRF template count differs.');
@@ -1381,8 +1398,18 @@ for idx = 1:numel(expected)
     assert(strcmp(sha256_file(templatePath), expected(idx).sha256), ...
         'Template bytes differ: %s', expected(idx).name);
     value = load(templatePath);
+    assert(isequal(sort(fieldnames(value)), {'NRF'; 'fs'}), ...
+        'Template variables differ: %s', expected(idx).name);
+    assert(isa(value.fs, 'double') && isreal(value.fs) && ...
+        isscalar(value.fs) && isfinite(value.fs) && value.fs == 500);
     assert(isequal(value.fs, expected(idx).fs));
+    assert(isa(value.NRF, 'double') && isreal(value.NRF) && ...
+        iscolumn(value.NRF) && all(isfinite(value.NRF)));
     assert(numel(value.NRF) == expected(idx).length);
+    assert(abs(mean(value.NRF)) <= 1e-12, ...
+        'Template mean is not zero: %s', expected(idx).name);
+    assert(abs(norm(value.NRF, 2) - 1) <= 1e-12, ...
+        'Template L2 norm is not one: %s', expected(idx).name);
 end
 end
 
@@ -1405,6 +1432,18 @@ catch ME
         expectedIdentifier, label, ME.identifier);
 end
 assert(didThrow, 'Expected failure did not occur: %s', label);
+end
+
+function assert_error_message(callback, expectedMessage)
+didThrow = false;
+try
+    callback();
+catch ME
+    didThrow = true;
+    assert(strcmp(ME.message, expectedMessage), ...
+        'Expected error "%s", received "%s".', expectedMessage, ME.message);
+end
+assert(didThrow, 'Expected failure did not occur: %s', expectedMessage);
 end
 
 function assert_any_error(callback, failureMessage)

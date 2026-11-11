@@ -4,7 +4,7 @@
     "matlab": "26.1.0.3312084 (R2026a) Update 4",
     "matlab_release": "2026a",
     "eeglab": "2026.0.0",
-    "host": "macOS 26.6.1 build 25G76 arm64"
+    "host": "macOS 27.2 build 26B123 arm64"
   },
   "comparison": {
     "exact_behaviour": "strict isequaln",
@@ -15,16 +15,16 @@
   },
   "case_counts": {
     "preprocessing": 30,
-    "response": 17,
+    "response": 11,
     "jitter": 11,
     "quality_control_coordinator": 9,
     "quality_control_direct": 275,
-    "templates": 6
+    "templates": 3
   },
   "fixture": {
     "path": "tests/fixtures/simple_scientific_oracle_v1.mat",
-    "bytes": 5157895,
-    "sha256": "5477d510e9d321c26ce47ab14d13f335b79400285c0615860488d219b40bf547"
+    "bytes": 3166162,
+    "sha256": "fc99ea8862378f6b70113a9f871ecbe375f007319ea90f5772d447e2d1e4fb82"
   },
   "boundaries": {
     "synthetic_only": true,

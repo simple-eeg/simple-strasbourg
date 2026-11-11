@@ -45,18 +45,17 @@ MATLAB R2026a Update 4 with EEGLAB 2026.0.0. Required functionality includes:
 CleanLine is optional. Preprocessing uses it when selected and otherwise uses
 the configured notch-filter route.
 
-Scripts that call repository functions start EEGLAB, prepend this checkout's
-`functions/` directory to the MATLAB path, and verify that required functions
-resolve there. Do not add `NRFs/` to the MATLAB path; logical template names
-are resolved directly against this repository.
+EEGLAB is started by the steps that need it. When a step uses helpers from
+the repository's `functions/` directory, it puts that directory first on the
+MATLAB path and checks which helpers are loaded. Do not add `NRFs/` to the
+MATLAB path; template names resolve directly against this repository.
 
 The scripts contain editable Strasbourg root variables such as `baseDir`,
-`root`, `local_base` or `PROJECT_ROOT`; the first source-inventory script also
-contains the external source location. Set those declarations for the current
-installation before running a stage. Run numbered scripts from the `scripts/`
-folder using ordinary MATLAB script semantics. The workflow is staged and
-includes deliberate manual inspection points; it is not a single batch
-command.
+`root`, `local_base` or `PROJECT_ROOT`. Check these before running a stage.
+In Step 1.1, replace the `remote_base` placeholder in your local copy with
+the approved BrainVision export folder. Keep this path out of Git. Run the
+numbered scripts from the `scripts/` folder in MATLAB, pausing at the manual
+checks described below.
 
 ## Functions
 
@@ -82,20 +81,20 @@ again for epoching and baseline correction.
 
 ## NRF templates and configuration
 
-`NRFs/` contains six tracked templates:
+`NRFs/` contains three tracked templates at 500 Hz:
 
 ```text
 early_NRF_500Hz.mat
-early_NRF_2000Hz.mat
 noxious_NRF_500Hz.mat
-noxious_NRF_2000Hz.mat
 noxious_preterm_NRF_500Hz.mat
-noxious_preterm_NRF_2000Hz.mat
 ```
 
-Every template MAT file contains `NRF` and `fs`. The template sampling rate
-must exactly equal the EEG sampling rate; the estimator does not resample
-templates.
+Each MAT file stores a real double column vector `NRF` and scalar `fs = 500`.
+Each stored NRF has mean zero and discrete L2 norm one within floating-point
+precision. The dimensionless template gives its signed fitted coefficient
+the EEG input's unit; that coefficient is not a peak EEG amplitude. The
+template and EEG sampling rates must match exactly; the estimator does not
+resample templates.
 
 `NRFs/nrf_config.ini` defines the profiles used by Step 4 NRF feature
 extraction. Each profile has exactly six settings: `NRFName`,
@@ -213,10 +212,16 @@ The Step 6.2 viewer offers `File > Save PDF...` to save the complete current
 display, including all plots and the Navigator, to a PDF location chosen by
 the user. Exporting this snapshot does not change the screening decisions.
 
-The Strasbourg settings use `cannula` and `cannula_prestim` epochs at `Cz`, a
-200 ms pre-event and 1200 ms post-event epoch, and the configured preterm NRF
-route. Review these settings against the intended execution before running the
-dependent scripts.
+For NOCI-Prem, Step 3 prepares `cannula` and `cannula_prestim` epochs at
+`Cz` from −200 to 1200 ms at 500 Hz. Step 4.2 writes
+`data/info/epoch_types/epoch_type_summary.csv` with blank NRF columns.
+Before running Step 4.3, enter `prem_foot_nox` in the `noxious_preterm_NRF`
+column for both epoch types. Leave the other two NRF columns blank.
+
+The preterm template has 501 samples. Before jitter alignment, its first and
+last fitted samples are at 0 and 1000 ms relative to each event. The 1002 ms
+boundary is excluded. With ±100 ms jitter, the fit requires samples from
+−100 through 1100 ms, in addition to the pre-event baseline.
 
 ### Step 8 — General manuscript output
 
@@ -264,7 +269,7 @@ test establishes technical behaviour; it does not replace those decisions.
 ## Tests
 
 `tests/run_all_tests.m` uses synthetic EEG fixtures only. It exercises the
-preprocessing, response, jitter and QC contracts, all six bundled templates,
+preprocessing, response, jitter and QC contracts, all three bundled templates,
 registry paths, the optional Step 2 identity and `.set`-sanitisation
 transactions, effective preprocessing provenance, stale-NRF clearing, path
 precedence, local template binding, the Step 8 descriptive-check figure transaction,
