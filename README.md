@@ -228,17 +228,19 @@ boundary is excluded. With ±100 ms jitter, the fit requires samples from
 `step_8_gen_1_check_plots.m` creates the fixed post-screening descriptive-check
 Figure 3b under `data/results/` and leaves the corresponding MATLAB figure,
 configuration, calculated panel data and graphics handles in the workspace for
-inspection. It loads the screened pooled epochs and the saved Step 7.6/7.7
-separation results, then writes
+inspection. It loads the screened pooled epochs and the saved Step 7.7 NRF
+separation result, then writes
 `figure_3b_post_screening_descriptive_checks_noci_prem.pdf` as a vector PDF.
 
-The figure has four rows and two columns: recording-level average time series,
-time-frequency and PSD panels for `cannula_prestim` and `cannula`, followed by
-the saved QC and preterm-noxious-NRF feature-separation checks. The first three
-rows use the active Strasbourg Step 7.3--7.5 settings, including the configured
-preterm NRF overlay. The final row validates and plots the saved schema-v2 Step
-7 results without rerunning their bootstrap or changing the caller's random-
-number-generator state. Step 8 does not aggregate recordings within participant.
+The figure has seven panels across four rows. The first three rows show
+recording-level average time-series, time-frequency, and PSD plots, with
+`cannula` true events on the left and `cannula_prestim` internal references on
+the right. They use the active Strasbourg Step 7.3--7.5 settings, including the
+configured p-NRF overlay. The final row centres the p-NRF comparison at its
+existing width, showing magnitudes and paired differences in µV. It validates
+and plots the saved schema-v2 Step 7.7 NRF result without rerunning its bootstrap
+or changing the caller's random-number-generator state; the QC comparison
+result is not required. Step 8 does not aggregate recordings within participant.
 It does not call a Step 7 script or prepare a JASP file.
 
 The script starts a fresh exact-name Command Window log before clearing the

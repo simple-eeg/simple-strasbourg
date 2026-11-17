@@ -2038,7 +2038,7 @@
       "id": "BASE-GEN-001",
       "requirement_key": "step8_guardrail_figure",
       "surface": "scripts.step_8_manuscript_output",
-      "requirement": "Step 8 contains exactly one manuscript-output script. It creates the fixed recording-level four-by-two Figure 3b PDF from validated screened epochs and saved Step 7.6/7.7 schema-v2 results without invoking a Step 7 script, recalculating its bootstrap or aggregating recordings within participant. It commits only its own PDF transactionally under data/results and creates its exact-name replacement log.",
+      "requirement": "Step 8 contains exactly one manuscript-output script. It creates the fixed recording-level seven-panel Figure 3b PDF from validated screened epochs and the saved Step 7.7 schema-v2 NRF result without invoking a Step 7 script, recalculating its bootstrap or aggregating recordings within participant. It commits only its own PDF transactionally under data/results and creates its exact-name replacement log.",
       "test_refs": [
         {
           "test_id": "matlab.step8_check_plot"
@@ -2056,7 +2056,7 @@
       "id": "BASE-CLS-020",
       "requirement_key": "closure_step81",
       "surface": "scripts.step_8_gen_1_check_plots",
-      "requirement": "The fixed Step 8.1 post-screening descriptive-check figure uses the exact five canonically bound helper interfaces, matches active Steps 7.3--7.5 for both configured events, consumes fully validated saved schema-v2 separation results without bootstrap or RNG change, exposes the accepted tagged eight-panel and six-label inspection surface, and restores or removes its owned PDF transaction on every rejected route.",
+      "requirement": "The fixed Step 8.1 post-screening descriptive-check figure uses the exact five canonically bound helper interfaces, matches active Steps 7.3--7.5 for both configured events, consumes the fully validated saved schema-v2 NRF separation result without bootstrap or RNG change, exposes the accepted tagged seven-panel and four-label inspection surface with true events on the left, internal references on the right, and a centred NRF plot at its existing width with magnitudes and differences in microvolts, and restores or removes its owned PDF transaction on every rejected route.",
       "test_refs": [
         {
           "test_id": "matlab.step8_check_plot"

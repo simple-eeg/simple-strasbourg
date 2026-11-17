@@ -1138,7 +1138,7 @@ if actual != expected:
 
 source_hashes = {
     "scripts/step_8_gen_1_check_plots.m":
-        "d4b5cb3709967414dd47f84d1693aa1bd54a5188fd55e13bb059be830fecbaf2",
+        "db2041d33807537cca5cc4abf06a08743c0f3dcb4cb524067bffacfe8d4b1c64",
     "functions/collect_guardrail_event_series.m":
         "09fd57796d147f88c008d6a0add4c37ad658ec61f40cff549c349c9541555dc5",
     "functions/plot_guardrail_average_ts.m":
@@ -1189,7 +1189,6 @@ step81_anchors = [
     "'figure_3b_post_screening_descriptive_checks_noci_prem.pdf'",
     "'step_8_gen_1_check_plots.log'",
     "'pooled_screened_eeg_epochs.mat'",
-    "'step_7_check_6_sep_check_qc_result.mat'",
     "'step_7_check_7_sep_check_nrf_result.mat'",
     "'ordered', [\"cannula_prestim\", \"cannula\"]",
     "figure6Config.use_exclusion_flags = true;",
@@ -1206,11 +1205,17 @@ step81_anchors = [
     "'part_a', 'Time and frequency domain checks'",
     "'reference', 'Internal reference'",
     "'true', 'True event'",
-    "'part_b', 'Feature separation checks'",
+    "'part_b', 'NRF magnitude separation check'",
     "'figure6-label-part-a', 'center'",
     "'figure6-label-part-b', 'center'",
-    "'qc', 'QC feature'",
-    "'nrf', 'Preterm noxious NRF magnitude'",
+    "dataAxes = gobjects(7, 1);",
+    "ylim(dataAxes(7), [0 150]);", "yticks(dataAxes(7), 0:50:150);",
+    "numel(unique(actualAxesTags)) ~= 7",
+    "numel(unique(labelTags)) ~= 4",
+    "0.56 0.75 0.34 0.15", "0.07 0.75 0.34 0.15",
+    "0.33 0.08 0.34 0.15", "0.04 0.2439 0.92 0.025",
+    "Magnitude (\\muV)", "Median paired difference (\\muV)",
+    "'display_label', 'p-NRF'",
     "figure6Config = struct();", "figure6PanelData = struct();",
     "figure6PanelHandles = struct();", "figure6Figure = figure(",
     "collect_guardrail_event_series(", "plot_guardrail_average_ts(",
@@ -1233,16 +1238,20 @@ expected_axes = [
     "figure6-ts-reference", "figure6-ts-true",
     "figure6-tf-reference", "figure6-tf-true",
     "figure6-psd-reference", "figure6-psd-true",
-    "figure6-qc-separation", "figure6-nrf-separation",
+    "figure6-nrf-separation",
 ]
 expected_labels = [
     "figure6-label-part-a", "figure6-label-reference",
     "figure6-label-true", "figure6-label-part-b",
-    "figure6-label-qc", "figure6-label-nrf",
 ]
 for tag in expected_axes + expected_labels:
     if step81.count(tag) < 2:
         raise AssertionError(f"Step 8.1 tagged inventory lacks checked tag {tag}")
+
+for prohibited in ("qc_result_mat", "qc_expected", "qcSeparation",
+                   "figure6-qc-separation", "figure6-label-qc", "figure6-label-nrf"):
+    if prohibited in step81:
+        raise AssertionError(f"Step 8.1 retains removed QC plot dependency: {prohibited}")
 
 helper_contracts = {
     "collect_guardrail_event_series.m":
@@ -1275,8 +1284,8 @@ readme = (root / "README.md").read_text(encoding="utf-8")
 for anchor in (
     "step_8_gen_1_check_plots.m",
     "figure_3b_post_screening_descriptive_checks_noci_prem.pdf",
-    "four rows and two columns",
-    "without rerunning their bootstrap",
+    "seven panels across four rows",
+    "without rerunning its bootstrap",
     "does not call a Step 7 script",
     "aggregate recordings within participant",
 ):
@@ -1346,8 +1355,8 @@ check_readme() {
         '### Step 8 — General manuscript output' \
         '`step_8_gen_1_check_plots.m`' \
         '`figure_3b_post_screening_descriptive_checks_noci_prem.pdf`' \
-        'four rows and two columns' \
-        'without rerunning their bootstrap' \
+        'seven panels across four rows' \
+        'without rerunning its bootstrap' \
         'does not call a Step 7 script' \
         'aggregate recordings within participant' \
         '`data/logs/step_8_gen_1_check_plots.log`' \
