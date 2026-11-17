@@ -5,6 +5,8 @@ dataset supplied by the Strasbourg collaborators. It covers BrainVision source
 preparation, the complete SIMPLE EEG workflow, and the Strasbourg-specific
 post-screening descriptive-check figure.
 
+**Software credits:** [Marianne van der Vaart](https://github.com/mvandervaart), [Simon Marchant](https://github.com/simonmarchant), and [Luke Baxter](https://github.com/lukebax) contributed equally to the development of this software.
+
 Associated methods paper: citation and link to be added when available.
 
 ## Repository layout
@@ -187,7 +189,9 @@ inventories.
 
 ### Steps 3–7 — SIMPLE framework
 
-The middle block implements the five stages documented in `simple`:
+The middle block implements the five software stages documented in `simple`.
+These group operations differently from the five scientific steps in the
+methods paper.
 
 | Strasbourg step | Framework step | Stage |
 |---|---|---|
@@ -198,15 +202,19 @@ The middle block implements the five stages documented in `simple`:
 | Step 7 | Step 5 | post-screening checks (`check`) |
 
 These scripts run from this repository. See the `simple` README for
-detailed stage inputs, outputs, rationale, manual checkpoints and operating
+detailed stage inputs, outputs, rationale, manual checkpoints, and operating
 rules.
 
 Step 3 preprocesses continuous recordings, removes unwanted events, adds
 configured offset or internal-reference events, and performs epoching and
 baseline correction. Step 4 calculates per-event/channel QC features and NRF
 fits. Step 5 creates individual and pooled summaries. Step 6 creates the fixed
-screening package, records manual decisions and applies them to pooled outputs.
-Step 7 provides display and machine-readable checks of the screened results.
+screening package, records manual decisions, and applies them to pooled outputs.
+Review each item using its waveform and QC evidence; keep NRF magnitudes and
+downstream group or outcome information out of screening decisions. True-event
+and internal-reference items receive separate statuses. Step 7 provides
+descriptive displays and machine-readable checks of the screened results
+without changing screening decisions.
 
 The Step 6.2 viewer offers `File > Save PDF...` to save the complete current
 display, including all plots and the Navigator, to a PDF location chosen by
@@ -278,7 +286,8 @@ precedence, local template binding, the Step 8 descriptive-check figure transact
 and the public APIs in the verified MATLAB/EEGLAB environment. It does not read
 project datasets or run a numbered workflow script against repository data.
 
-From MATLAB, call the runner with explicit roots:
+In MATLAB, set `strasbourgRoot` to this checkout and `eeglabRoot` to your
+EEGLAB installation, then call the runner:
 
 ```matlab
 addpath(fullfile(strasbourgRoot, 'tests'), '-begin');

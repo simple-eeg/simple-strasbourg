@@ -14,7 +14,7 @@ function log_command_window(action)
 %
 % Assumptions:
 %   - This file lives in <project_root>/scripts/.
-%   - You are running scripts with current folder = scripts/.
+%   - The repository-local helper must be on the MATLAB path.
 
 % -------------------- 0) Validate input ------------------------------
 if nargin ~= 1 || ~(ischar(action) || isstring(action))
@@ -39,7 +39,7 @@ if numel(st) < 2
     error('log_command_window:NoCaller', ...
         'log_command_window(''start'') must be called from a script or function.');
 end
-callerPath = st(2).file;             % e.g., .../scripts/step_1_source_1_create_list.m
+callerPath = st(2).file;             % e.g., .../scripts/step_1_source_1_create_dataset_list_prelim.m
 [~, callerBase, ~] = fileparts(callerPath);
 
 % -------------------- 3) Locate project root from THIS helper --------

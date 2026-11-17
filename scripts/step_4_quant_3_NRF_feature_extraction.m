@@ -6,14 +6,14 @@
 %     then reuse its per-epoch results for all mapped epochs.
 %   - Store results compactly at EEG.epoch(e).NRF.(Channel).(NRFName).
 %
-% Storage & policy (agreed):
+% Storage and policy:
 %   - EEG.epoch(e).NRF.(Channel).(NRFName) with fields:
 %       projectionTimes, pearsonR, shift_all, cosineSimilarity,
 %       fglsCoef, fglsVarCoef, olsCoef,
 %       channel_label, eventtype, template_dur_ms, profile(=struct: name + 6 INI options)
 %   - Drop large arrays: shifted_data_all, NRF_resampled.
 %   - Exactly one scalar start per profile (pre ≤ 0 XOR post ≥ 0). Other empty.
-%   - Runtime checks per dataset: abs_start_ms >= jitter; sample-grid alignment.
+%   - Runtime checks per dataset: sample-grid alignment and sampled jitter-search bounds.
 %   - Case-sensitive eventtype matching; CSV cells empty or a single profile name.
 %   - Channels only from the profile; report and skip those not present.
 %   - Clear all previous results under EEG.epoch(e).NRF before writing.
@@ -166,7 +166,7 @@ for i = 1:N
     end
     present = intersect(requested_all, labels, 'stable');
     missing = setdiff(requested_all, labels, 'stable');
-    % Print in the exact style as Option 1: "A , B , C"
+    % Print the channel list.
     present_str = ''; if ~isempty(present), present_str = strjoin(present, ' , '); end
     missing_str = ''; if ~isempty(missing), missing_str = strjoin(missing, ' , '); end
     fprintf('   channels — present: %s | missing: %s\n', present_str, missing_str);

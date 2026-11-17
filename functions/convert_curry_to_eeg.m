@@ -3,7 +3,7 @@ function [EEG, ok] = convert_curry_to_eeg(srcDir, mainFile, sidecars, annotation
 % Load Curry 7/8 data via loadcurry, replace events from CEF/CEO, map
 % Annotation->Type (unmapped/empty -> 'NA'), and return EEG (no saving).
 %
-% NEW (merge strategy):
+% Boundary-event handling:
 %   - Preserve any 'boundary' events created by loadcurry for epoched data:
 %       1) call loadcurry
 %       2) capture existing boundary event latencies

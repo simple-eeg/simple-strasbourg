@@ -306,7 +306,7 @@ for i = 1:nTotal
     set(h_line, 'HitTest', 'off', 'PickableParts', 'none');
     grid(ax1, 'on');
     xlabel(ax1, 'Time (ms)');
-    ylabel(ax1, 'Amplitude'); % changed
+    ylabel(ax1, 'Amplitude');
     h0 = xline(ax1, 0, '--', 'Color', [0.6 0.6 0.6], 'LineWidth', 1);
     set(h0, 'HitTest', 'off', 'PickableParts', 'none');
     xlim(ax1, time_xlim_ms);
@@ -319,7 +319,7 @@ for i = 1:nTotal
     set(h_line, 'HitTest', 'off', 'PickableParts', 'none');
     grid(ax2, 'on');
     xlabel(ax2, 'Time (ms)');
-    ylabel(ax2, 'Amplitude'); % changed
+    ylabel(ax2, 'Amplitude');
     h0 = xline(ax2, 0, '--', 'Color', [0.6 0.6 0.6], 'LineWidth', 1);
     set(h0, 'HitTest', 'off', 'PickableParts', 'none');
     xlim(ax2, time_xlim_ms);

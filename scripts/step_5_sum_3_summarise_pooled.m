@@ -31,7 +31,7 @@
 %       - If epochs_index present: height(QC) == height(Index) * mode(n_channels)
 %   • Provenance in a separate manifest CSV (no extra columns added to pooled CSVs).
 %   • Pooled epochs MAT saved with adaptive format: try -v7, fallback to -v7.3 (HDF5) if needed.
-%   • Console-only logging: informative progress lines + warnings + final summary.
+%   • Progress messages, warnings, and the final summary are captured in the per-script log.
 
 log_command_window('start');
 clear; clc;

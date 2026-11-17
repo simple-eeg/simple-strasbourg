@@ -1,5 +1,5 @@
 function [EEG, report] = sanitise_eeglab_dataset(EEG, expected, privacy)
-%SANITISE_EEGLAB_DATASET Apply the accepted SET metadata policy.
+%SANITISE_EEGLAB_DATASET Apply the repository's SET metadata policy.
 
 if nargin < 3 || isempty(privacy)
     privacy = struct();

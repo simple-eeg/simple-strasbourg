@@ -12,7 +12,8 @@ function [EEG_out, report] = delete_unwanted_events(EEG_in, match_labels)
 %   [EEG_out, report] = delete_unwanted_events(EEG_in, {'NA','bad','skip'})
 %
 % Inputs
-%   EEG_in        : EEGLAB EEG struct. Only the .event array is modified.
+%   EEG_in        : EEGLAB EEG struct. Event fields and associated consistency
+%                   bookkeeping may change; data samples are unchanged.
 %   match_labels  : Labels to remove. Accepts char, string, string array, or cellstr.
 %                   Comparison is case-insensitive and exact (no substring matching).
 %                   Default = {'NA'}.
