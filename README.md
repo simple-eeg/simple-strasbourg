@@ -17,7 +17,8 @@ workflow requires access to those inputs and familiarity with MATLAB and
 EEGLAB.
 
 - **New to SIMPLE?** Start with the [framework guide](https://github.com/simple-eeg/simple#start-here).
-- **Want to try the workflow without clinical data?** Follow the [synthetic tutorial](https://github.com/simple-eeg/simple#synthetic-tutorial), which uses the [synthetic EEG generator](https://github.com/simple-eeg/simple-synthetic-eeg-generator).
+- **Want to try the workflow without clinical data?** Follow the [synthetic tutorial](https://github.com/simple-eeg/simple#synthetic-tutorial), using the ready-made example or generating it yourself.
+- **Reviewing the paper's results?** See the [figure source data guide](https://github.com/simple-eeg/simple-data/tree/main/figure-source-data) for the shared NOCI-Prem measurements and their use in the figures.
 - **Working with the Strasbourg data?** Follow [setup](#before-you-begin) and the [workflow](#workflow) below. This repository contains its own functions and scripts; a separate `simple` checkout is not required.
 - **Checking an option or file format?** See the [technical reference](#technical-reference).
 
@@ -356,7 +357,9 @@ accepted PDF and unrelated results.
 
 [`tests/run_all_tests.m`](tests/run_all_tests.m) checks the workflow's technical
 behaviour using synthetic EEG fixtures. It does not read project datasets or
-run a numbered workflow script against repository data.
+run a numbered workflow script against repository data. The full suite also
+requires the CleanLine plugin (`pop_cleanline`), even when the selected
+preprocessing route does not use it.
 
 The suite covers preprocessing, response estimation, jitter alignment, QC,
 and all three bundled templates. It also checks dataset paths, optional
@@ -390,8 +393,8 @@ and EEGLAB versions above. To start it, open the repository's **Actions** tab,
 select **MATLAB synthetic tests**, and choose **Run workflow**. It uses only
 synthetic fixtures, without clinical datasets.
 
-For static source checks, run the following in a terminal from the checkout
-root:
+Static repository checks require Bash, Git, Python 3, and Unix command-line
+tools, including `shasum`. Run them from the checkout root:
 
 ```sh
 ./tests/run_static_checks.sh
