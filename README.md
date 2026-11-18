@@ -5,7 +5,7 @@ dataset supplied by the Strasbourg collaborators. It prepares BrainVision
 recordings, runs SIMPLE (Single-event Measurement Pipeline for EEG), and
 creates the study's post-screening descriptive-check figure.
 
-**Software credits:** [Luke Baxter](https://github.com/lukebax), [Marianne van der Vaart](https://github.com/mvandervaart), and [Simon Marchant](https://github.com/simonmarchant) contributed equally to the development of this software.
+**Software credits:** [Luke Baxter](https://github.com/lukebax), [Marianne van der Vaart](https://github.com/mvandervaart), and [Simon Marchant](https://github.com/simonmarchant) contributed to the development of this software.
 
 Associated methods paper: citation and link to be added when available.
 
