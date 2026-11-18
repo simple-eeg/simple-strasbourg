@@ -378,6 +378,12 @@ The GitHub workflow checks Python source contracts on macOS, Windows, and
 Linux. On Windows it also checks file-link inspection under an ordinary user
 account. These checks do not run MATLAB or replace the synthetic MATLAB suite.
 
+Saved-output comparisons allow small, field-specific numerical rounding
+according to [the comparison helper](tests/saved_reference_matches.m). Types,
+dimensions, metadata, and missing-value positions remain exact, as do comparisons
+between equivalent calculations on the same machine. The reference data and
+scientific calculations are unchanged.
+
 The separate [MATLAB synthetic tests](.github/workflows/matlab.yml) workflow
 runs the full suite on macOS, Windows, and Linux using the reference MATLAB
 and EEGLAB versions above. To start it, open the repository's **Actions** tab,

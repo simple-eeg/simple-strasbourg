@@ -262,10 +262,48 @@ require(manifest.get("schema") == "simple-repository-coverage-v1", "bad manifest
 require(manifest.get("repository") == "simple-strasbourg", "bad repository identity")
 require(manifest.get("baseline") == 1, "bad baseline identity")
 require(manifest.get("comparison_policy") == {
-    "exact_behaviour": "strict isequaln",
-    "absolute_tolerance": 0,
-    "relative_tolerance": 0,
-}, "comparison policy differs from the exact scientific contract")
+    "exact_behaviour": "Strict isequaln except explicitly named saved floating-point outputs; same-runner comparisons remain exact.",
+    "floating_rule": "abs(actual - expected) <= absolute_tolerance + relative_tolerance * abs(expected), elementwise",
+    "comparator": {
+        "path": "tests/saved_reference_matches.m",
+        "sha256": "9dc64dea5f65d503d59e07cbc5b7b13e6bf17d164dee231a7dce14c052a68c07"
+    },
+    "self_tests": {
+        "path": "tests/run_saved_reference_tests.m",
+        "sha256": "056d00196dc72c2e4b78c53cd2e8a50813f20fe9e6e21077afdfacfa8e4900f8",
+        "expected_pass_count": 34
+    },
+    "preproc_data": {
+        "absolute_tolerance": 1e-15,
+        "relative_tolerance": 0
+    },
+    "ordinary_response_fields": [
+        "pearsonR",
+        "cosineSimilarity",
+        "olsCoef"
+    ],
+    "ordinary_qc_fields": [
+        "RobustSlopeNorm",
+        "AutoCorrLag1Pos",
+        "AutoCorrLag1Neg"
+    ],
+    "ordinary": {
+        "absolute_tolerance": 1e-14,
+        "relative_tolerance": 1e-12
+    },
+    "fgls_fields": [
+        "fglsCoef",
+        "fglsVarCoef"
+    ],
+    "fgls": {
+        "absolute_tolerance": 1e-12,
+        "relative_tolerance": 5e-09
+    }
+}, "saved-reference comparison policy differs")
+for binding in ("comparator", "self_tests"):
+    item = manifest["comparison_policy"][binding]
+    require(hashlib.sha256((root / item["path"]).read_bytes()).hexdigest() == item["sha256"],
+            f"saved-reference {binding} differs from its manifest binding")
 
 catalog = manifest.get("test_catalog")
 coverage = manifest.get("coverage")
@@ -360,7 +398,7 @@ for item in catalog:
     require(represented == item["expected_pass_count"],
             f"case/pass count differs: {item['id']}")
 
-expected_totals = {"runner_sha256":"27bf9148afd3f83b8c277fa957c49d5379b06c927b4e55fbcefd086679711c39","preproc":30,"response":11,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"step2_identity":18,"step2_sanitisation":12,"step2_downstream_identity":8,"processing_state":9,"step8_check_plot":8,"extended":120}
+expected_totals = {"runner_sha256":"91aa8061e2e004203c03d226bce874c2e5c52c4cc819b8b200fb3b1786e263a6","preproc":30,"response":11,"jitter":11,"qc":284,"clean_contract":18,"registry":23,"step2_identity":18,"step2_sanitisation":12,"step2_downstream_identity":8,"processing_state":9,"step8_check_plot":8,"extended":120}
 require(manifest.get("expected_runtime_totals") == expected_totals,
         "runtime totals differ from the repository test contract")
 runner_bytes = (root / "tests" / "run_all_tests.m").read_bytes()
