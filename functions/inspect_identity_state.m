@@ -167,9 +167,7 @@ end
 
 function count = hard_link_count(pathValue)
 try
-    options = javaArray('java.nio.file.LinkOption', 0);
-    count = double(java.nio.file.Files.getAttribute( ...
-        java.io.File(pathValue).toPath(), 'unix:nlink', options));
+    count = file_hard_link_count(pathValue);
 catch
     error('SIMPLE:Step2Identity:HardLinkInspectionFailed', ...
         'A governed file hard-link count could not be verified.');

@@ -299,6 +299,8 @@ end
 function setup_repository(repoRoot, root)
 mkdir(root);
 mkdir(fullfile(root, 'functions'));
+copyfile(fullfile(repoRoot, 'functions', 'private'), ...
+    fullfile(root, 'functions', 'private'));
 mkdir(fullfile(root, 'scripts'));
 mkdir(fullfile(root, 'data'));
 mkdir(fullfile(root, 'data', 'raw'));

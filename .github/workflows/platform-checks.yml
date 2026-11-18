@@ -1,0 +1,33 @@
+name: Platform source checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Check processing safety contracts
+        run: python tests/check_processing_safety_contracts.py .
+      - name: Check identity-route contracts
+        run: python tests/check_step2_identity_contracts.py .
+      - name: Check Windows file-link inspection
+        if: runner.os == 'Windows'
+        run: python tests/check_windows_hard_links.py
+      - name: Check Windows file-link inspection as a standard user
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/check_windows_standard_user.ps1

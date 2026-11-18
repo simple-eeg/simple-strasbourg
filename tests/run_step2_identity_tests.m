@@ -16,6 +16,7 @@ end
 
 originalPath = path;
 pathCleanup = onCleanup(@() path(originalPath));
+addpath(fullfile(repoRoot, 'tests', 'helpers'), '-begin');
 suiteRoot = tempname;
 mkdir(suiteRoot);
 suiteCleanup = onCleanup(@() remove_tree(suiteRoot));
@@ -47,7 +48,7 @@ test_inspector_workspaces(suiteRoot, repoRoot, sourceRoot);
 test_success_and_noop(suiteRoot, repoRoot, sourceRoot);
 test_input_guards(suiteRoot, repoRoot, sourceRoot);
 test_inventory_guards(suiteRoot, repoRoot, sourceRoot);
-test_filesystem_and_set_guards(suiteRoot, repoRoot, sourceRoot);
+skipped = test_filesystem_and_set_guards(suiteRoot, repoRoot, sourceRoot);
 test_downstream_and_space(suiteRoot, repoRoot, sourceRoot);
 test_private_diagnostics(suiteRoot, repoRoot, sourceRoot);
 test_caught_rollback(suiteRoot, repoRoot, sourceRoot);
@@ -60,8 +61,10 @@ test_step29_guards(suiteRoot, repoRoot, sourceRoot);
 test_step29_numeric(suiteRoot, repoRoot, sourceRoot);
 
 result = struct('schema', 'simple-step2-identity-tests-v2', ...
-    'case_names', caseNames, 'total', numel(caseNames), 'passed', true);
-fprintf('STEP 2 IDENTITY TESTS PASSED: %d\n', result.total);
+    'case_names', caseNames, 'total', numel(caseNames), ...
+    'skipped', skipped, 'passed', true);
+fprintf('STEP 2 IDENTITY TEST GROUPS PASSED: %d; platform skips: %d\n', ...
+    result.total, skipped);
 end
 
 function test_mapping(suiteRoot, repoRoot, sourceRoot)
@@ -339,7 +342,8 @@ assert_rejected(@() run_transaction(fixture, large_space()), ...
 assert(~isfolder(fixture.workspace10));
 end
 
-function test_filesystem_and_set_guards(suiteRoot, repoRoot, sourceRoot)
+function skipped = test_filesystem_and_set_guards(suiteRoot, repoRoot, sourceRoot)
+skipped = 0;
 kinds = ["symlink", "hardlink", "special", "external", "missing_data"];
 identifiers = ["SIMPLE:Step2Identity:UnsafeRawInventory", ...
     "SIMPLE:Step2Identity:UnsafeHardLink", ...
@@ -352,13 +356,22 @@ for index = 1:numel(kinds)
     switch kinds(index)
         case "symlink"
             link = fullfile(fixture.raw, 'linked.set');
-            assert(system(sprintf('/bin/ln -s %s %s', ...
-                shell_quote(fixture.all_files(1)), shell_quote(link))) == 0);
+            if ~create_test_link(char(fixture.all_files(1)), link)
+                skipped = skipped + 1;
+                continue
+            end
         case "hardlink"
             link = fullfile(fixture.root, 'outside-hardlink.set');
-            assert(system(sprintf('/bin/ln %s %s', ...
-                shell_quote(fixture.all_files(1)), shell_quote(link))) == 0);
+            if ~create_test_link(char(fixture.all_files(1)), link, 'hard')
+                skipped = skipped + 1;
+                continue
+            end
         case "special"
+            if ~isunix
+                fprintf('SKIP: Unix FIFO inventory fixture is unavailable.\n');
+                skipped = skipped + 1;
+                continue
+            end
             fifo = fullfile(fixture.raw, 'unexpected.fifo');
             assert(system(sprintf('/usr/bin/mkfifo %s', shell_quote(fifo))) == 0);
         case "external"
@@ -634,6 +647,7 @@ root = fullfile(suiteRoot, char(name));
 mkdir(root);
 functionsRoot = fullfile(root, 'functions');
 mkdir(functionsRoot);
+copyfile(fullfile(sourceRoot, 'private'), fullfile(functionsRoot, 'private'));
 mkdir(fullfile(root, 'data_lists'));
 raw = fullfile(root, 'data', 'raw');
 mkdir(raw);
@@ -788,9 +802,9 @@ if ~isfolder(scriptsRoot)
 end
 source = fileread(fullfile(repoRoot, 'scripts', ...
     'step_2_raw_9_create_dataset_list.m'));
-sourceLine = ['baseDir = ''' repoRoot ''';'];
-matches = strfind(source, sourceLine);
-assert(isscalar(matches));
+sourceLines = regexp(source, '(?m)^baseDir\s*=\s*''[^'']+'';', 'match');
+assert(isscalar(sourceLines));
+sourceLine = sourceLines{1};
 fixtureLine = ['baseDir = ''' strrep(fixture.root, '''', '''''') ''';'];
 source = strrep(source, sourceLine, fixtureLine);
 runner = sprintf('function run_step29_fixture\n%s\nend\n', source);

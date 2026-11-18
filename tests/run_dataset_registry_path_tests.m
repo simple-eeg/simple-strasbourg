@@ -1,4 +1,4 @@
-function passed = run_dataset_registry_path_tests(repoRoot)
+function [passed, skipped] = run_dataset_registry_path_tests(repoRoot)
 %RUN_DATASET_REGISTRY_PATH_TESTS Exercise fail-closed registry target checks.
 
 arguments
@@ -7,8 +7,12 @@ end
 
 functionsRoot = fullfile(repoRoot, 'functions');
 addpath(functionsRoot, '-begin');
+originalPath = path;
+pathCleanup = onCleanup(@() path(originalPath)); %#ok<NASGU>
+addpath(fullfile(repoRoot, 'tests', 'helpers'), '-begin');
 clear validate_dataset_registry_paths
 rehash path
+skipped = 0;
 
 temporaryRoot = tempname;
 mkdir(temporaryRoot);
@@ -102,30 +106,31 @@ passed = passed + 1;
 outsideRoot = fullfile(temporaryRoot, 'outside');
 mkdir(outsideRoot);
 escapeLink = fullfile(temporaryRoot, 'data', 'raw', 'escape');
-[status, message] = system(sprintf('/bin/ln -s %s %s', ...
-    shell_quote(outsideRoot), shell_quote(escapeLink)));
-assert(status == 0, 'Could not create symlink fixture: %s', message);
-assert_rejected(set_value(T, 'path_raw', 2, 'data/raw/escape'), ...
-    temporaryRoot, 'summary', 'SIMPLE:DatasetRegistry:CanonicalEscape');
-passed = passed + 1;
+if create_test_link(outsideRoot, escapeLink)
+    assert_rejected(set_value(T, 'path_raw', 2, 'data/raw/escape'), ...
+        temporaryRoot, 'summary', 'SIMPLE:DatasetRegistry:CanonicalEscape');
+    passed = passed + 1;
+else
+    skipped = skipped + 1;
+end
 
 redirectedRoot = tempname;
 mkdir(fullfile(redirectedRoot, 'data', 'raw'));
 redirectedCleanup = onCleanup(@() rmdir_if_present(redirectedRoot)); %#ok<NASGU>
 processedLink = fullfile(redirectedRoot, 'data', 'processed');
-[status, message] = system(sprintf('/bin/ln -s %s %s', ...
-    shell_quote(fullfile(redirectedRoot, 'data', 'raw')), ...
-    shell_quote(processedLink)));
-assert(status == 0, 'Could not create processed symlink fixture: %s', message);
-sameTarget = T(1, :);
-sameTarget.path_processed = sameTarget.path_raw;
-sameTarget.path_processed = replace(sameTarget.path_processed, ...
-    'data/raw', 'data/processed');
-assert_rejected(sameTarget, redirectedRoot, 'processed', ...
-    'SIMPLE:DatasetRegistry:CanonicalEscape');
-passed = passed + 1;
+if create_test_link(fullfile(redirectedRoot, 'data', 'raw'), processedLink)
+    sameTarget = T(1, :);
+    sameTarget.path_processed = sameTarget.path_raw;
+    sameTarget.path_processed = replace(sameTarget.path_processed, ...
+        'data/raw', 'data/processed');
+    assert_rejected(sameTarget, redirectedRoot, 'processed', ...
+        'SIMPLE:DatasetRegistry:CanonicalEscape');
+    passed = passed + 1;
+else
+    skipped = skipped + 1;
+end
 
-fprintf('DATASET REGISTRY PATH TESTS PASSED: %d\n', passed);
+fprintf('DATASET REGISTRY PATH TESTS: %d passed, %d skipped\n', passed, skipped);
 end
 
 function T = valid_registry()
@@ -153,10 +158,6 @@ catch ME
     return
 end
 error('Expected registry validation to reject the fixture.');
-end
-
-function quoted = shell_quote(value)
-quoted = ['"' strrep(char(value), '"', '\"') '"'];
 end
 
 function write_sentinel(filePath, value)

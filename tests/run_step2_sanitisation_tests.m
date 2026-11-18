@@ -6,6 +6,7 @@ arguments
 end
 originalPath = path;
 pathCleanup = onCleanup(@() path(originalPath));
+addpath(fullfile(repoRoot, 'tests', 'helpers'), '-begin');
 functionsRoot = fullfile(repoRoot, 'functions');
 addpath(functionsRoot, '-begin');
 clear build_pseudonymised_dataset_registry inspect_identity_state ...
@@ -34,16 +35,18 @@ case_metadata_policy();
 case_privacy_policy(repoRoot);
 case_unsupported_content();
 case_verifier_drift(repoRoot);
-case_preflight_guards(repoRoot);
+skipped = case_preflight_guards(repoRoot);
 case_caught_failure(repoRoot);
 case_hard_interruption(repoRoot);
 case_pre_mutation_recovery(repoRoot);
-case_unknown_workspace(repoRoot);
+skipped = skipped + case_unknown_workspace(repoRoot);
 case_changed_governed_files(repoRoot);
 
 result = struct('schema', 'simple-step2-sanitisation-tests-v1', ...
-    'case_names', caseNames, 'total', numel(caseNames), 'passed', true);
-fprintf('STEP 2 SANITISATION TESTS PASSED: %d\n', result.total);
+    'case_names', caseNames, 'total', numel(caseNames), ...
+    'skipped', skipped, 'passed', true);
+fprintf('STEP 2 SANITISATION TEST GROUPS PASSED: %d; platform skips: %d\n', ...
+    result.total, skipped);
 end
 
 function case_continuous_success(repoRoot)
@@ -394,7 +397,8 @@ assert_rejected(@() verify_sanitised_eeglab_dataset( ...
     'SIMPLE:Step2Sanitise:StoredPolicyMismatch');
 end
 
-function case_preflight_guards(repoRoot)
+function skipped = case_preflight_guards(repoRoot)
+skipped = 0;
 fixture = create_original_fixture(repoRoot);
 cleanup = onCleanup(@() cleanup_fixture(fixture));
 activate_fixture_functions(fixture);
@@ -435,9 +439,12 @@ assert_rejected(@() run_sanitisation_transaction(fixture5.root), ...
     'SIMPLE:Step2Sanitise:UnexpectedActiveInventory');
 assert(isfolder(extraDirectory));
 
-nodeKinds = "file";
+nodeKinds = ["file", "symlink"];
 if isunix
-    nodeKinds = ["file", "symlink", "fifo"];
+    nodeKinds(end + 1) = "fifo";
+else
+    fprintf('SKIP: two Unix FIFO downstream-state fixtures are unavailable.\n');
+    skipped = skipped + 2;
 end
 for rootName = ["results", "logs"]
     for nodeKind = nodeKinds
@@ -446,7 +453,10 @@ for rootName = ["results", "logs"]
         nodeCleanup = onCleanup(@() cleanup_fixture(fixtureNode));
         activate_fixture_functions(fixtureNode);
         slot = fullfile(fixtureNode.root, 'data', char(rootName));
-        create_filesystem_object(slot, nodeKind, fixtureNode.registry);
+        if ~create_filesystem_object(slot, nodeKind, fixtureNode.registry)
+            skipped = skipped + 1;
+            continue
+        end
         assert_rejected(@() run_sanitisation_transaction(fixtureNode.root), ...
             'SIMPLE:Step2Sanitise:DownstreamStateExists');
         entries = dir(fullfile(fixtureNode.root, 'data'));
@@ -520,7 +530,8 @@ assert(strcmp(outcome.status, 'recovered'));
 assert_original_state(fixture);
 end
 
-function case_unknown_workspace(repoRoot)
+function skipped = case_unknown_workspace(repoRoot)
+skipped = 0;
 fixture = create_mapped_fixture(repoRoot, false, 'top-level-fields', 1);
 cleanup = onCleanup(@() cleanup_fixture(fixture));
 activate_fixture_functions(fixture);
@@ -619,10 +630,10 @@ assert_rejected(@() run_sanitisation_transaction(preManifestConflict.root), ...
     'SIMPLE:Step2Sanitise:UnknownRecoveryState');
 assert(strcmp(sha256_file(pendingPath), pendingHash));
 
-if isunix
-    for kind = ["pending", "manifest", "locked", "candidate", ...
-            "source", "active"]
-        assert_hard_link_refused(repoRoot, kind);
+for kind = ["pending", "manifest", "locked", "candidate", ...
+        "source", "active"]
+    if ~assert_hard_link_refused(repoRoot, kind)
+        skipped = skipped + 1;
     end
 end
 end
@@ -766,7 +777,7 @@ original = table(T.subjectID_orig, T.sessionID_orig, T.runID_orig, ...
     'path_raw', 'EEGfile_raw'});
 end
 
-function assert_hard_link_refused(repoRoot, kind)
+function available = assert_hard_link_refused(repoRoot, kind)
 if kind == "pending"
     fixture = create_mapped_fixture(repoRoot, false, ...
         'top-level-fields', 2);
@@ -793,8 +804,10 @@ else
     end
 end
 alias = fullfile(fixture.root, char("outside-" + kind + ".bin"));
-assert(system(sprintf('/bin/ln %s %s', ...
-    shell_quote(slot), shell_quote(alias))) == 0);
+available = create_test_link(slot, alias, 'hard');
+if ~available
+    return
+end
 slotHash = sha256_file(slot);
 aliasHash = sha256_file(alias);
 assert(same_file(slot, alias));
@@ -864,6 +877,8 @@ function fixture = create_skeleton(repoRoot)
 fixture.root = tempname;
 mkdir(fixture.root);
 mkdir(fullfile(fixture.root, 'functions'));
+copyfile(fullfile(repoRoot, 'functions', 'private'), ...
+    fullfile(fixture.root, 'functions', 'private'));
 mkdir(fullfile(fixture.root, 'data'));
 mkdir(fullfile(fixture.root, 'data', 'raw'));
 mkdir(fullfile(fixture.root, 'data_lists'));
@@ -1128,12 +1143,12 @@ cleanup = onCleanup(@() fclose(fid));
 fprintf(fid, '%s', value);
 end
 
-function create_filesystem_object(pathValue, kind, target)
+function available = create_filesystem_object(pathValue, kind, target)
+available = true;
 if kind == "file"
     write_text(pathValue, 'occupied');
 elseif kind == "symlink"
-    assert(system(sprintf('/bin/ln -s %s %s', ...
-        shell_quote(target), shell_quote(pathValue))) == 0);
+    available = create_test_link(target, pathValue);
 else
     assert(system(sprintf('/usr/bin/mkfifo %s', ...
         shell_quote(pathValue))) == 0);

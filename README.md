@@ -32,6 +32,8 @@ EEG segments for comparison with true-event epochs.
 ### Software
 
 The verified environment is MATLAB R2026a Update 4 with EEGLAB 2026.0.0.
+Use MATLAB and EEGLAB versions supported on your operating system. The
+project paths in the scripts are editable examples, not macOS requirements.
 Required functionality includes:
 
 - Statistics and Machine Learning Toolbox operations such as `corr`,
@@ -371,6 +373,10 @@ addpath(fullfile(strasbourgRoot, 'tests'), '-begin');
 results = run_all_tests(strasbourgRoot, eeglabRoot);
 assert(results.passed);
 ```
+
+The GitHub workflow checks Python source contracts on macOS, Windows, and
+Linux. On Windows it also checks file-link inspection under an ordinary user
+account. These checks do not run MATLAB or replace the synthetic MATLAB suite.
 
 For static source checks, run the following in a terminal from the checkout
 root:
