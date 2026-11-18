@@ -385,6 +385,12 @@ root:
 ./tests/run_static_checks.sh
 ```
 
-## License
+## Licence
 
-This repository is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+The software, configuration files, test scripts, and associated documentation
+are licensed under [Apache License 2.0](LICENSE).
+
+The three NRF template MAT files and the numerical test data in
+[`tests/fixtures/simple_scientific_oracle_v1.mat`](tests/fixtures/simple_scientific_oracle_v1.mat)
+are licensed under **CC BY 4.0**. See the
+[NRF data licence and source studies](NRFs/README.md).

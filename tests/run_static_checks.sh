@@ -521,11 +521,12 @@ check_template_inventory() {
     done | LC_ALL=C sort > "$actual"
     diff -u "$expected" "$actual" || return 1
     [ -f "$candidate/NRFs/nrf_config.ini" ] || return 1
-    [ "$(git -C "$candidate" ls-files NRFs | wc -l | tr -d ' ')" -eq 4 ] || {
-        printf 'NRFs tracked inventory is not exactly three templates plus nrf_config.ini\n'
-        return 1
-    }
-    printf 'three exact template digests and local INI'
+    printf '%s\n' LICENSE README.md early_NRF_500Hz.mat nrf_config.ini \
+        noxious_NRF_500Hz.mat noxious_preterm_NRF_500Hz.mat \
+        | LC_ALL=C sort > "$expected"
+    git -C "$candidate" ls-files NRFs | sed 's#^NRFs/##' | LC_ALL=C sort > "$actual"
+    diff -u "$expected" "$actual" || return 1
+    printf 'three exact template digests, local INI, and data licence documents'
 }
 
 check_current_surface() {
