@@ -1,0 +1,48 @@
+name: MATLAB synthetic tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matlab-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          path: project
+      - name: Check out EEGLAB 2026.0.0
+        uses: actions/checkout@v7
+        with:
+          repository: sccn/eeglab
+          ref: bcc710a8edd712738e48879b6846958a2be7be1d
+          path: eeglab
+      - name: Install the pinned EEGLAB filter plugin
+        run: git -C eeglab submodule update --init plugins/firfilt
+      - name: Set up the reference MATLAB environment
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2026aU4
+          products: >-
+            Statistics_and_Machine_Learning_Toolbox
+            Econometrics_Toolbox
+            Signal_Processing_Toolbox
+            Wavelet_Toolbox
+      - name: Run the full synthetic regression suite
+        uses: matlab-actions/run-command@v3
+        with:
+          command: >-
+            repoRoot = fullfile(getenv('GITHUB_WORKSPACE'), 'project');
+            eeglabRoot = fullfile(getenv('GITHUB_WORKSPACE'), 'eeglab');
+            addpath(fullfile(repoRoot, 'tests'), '-begin');
+            results = run_all_tests(repoRoot, eeglabRoot);
+            assert(results.passed);
+            disp(jsonencode(results));

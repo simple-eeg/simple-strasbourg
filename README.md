@@ -378,6 +378,12 @@ The GitHub workflow checks Python source contracts on macOS, Windows, and
 Linux. On Windows it also checks file-link inspection under an ordinary user
 account. These checks do not run MATLAB or replace the synthetic MATLAB suite.
 
+The separate [MATLAB synthetic tests](.github/workflows/matlab.yml) workflow
+runs the full suite on macOS, Windows, and Linux using the reference MATLAB
+and EEGLAB versions above. To start it, open the repository's **Actions** tab,
+select **MATLAB synthetic tests**, and choose **Run workflow**. It uses only
+synthetic fixtures, without clinical datasets.
+
 For static source checks, run the following in a terminal from the checkout
 root:
 
